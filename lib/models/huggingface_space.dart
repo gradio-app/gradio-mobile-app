@@ -10,6 +10,7 @@ class HuggingFaceSpace {
   final String? emoji;
   final String? status;
   final DateTime? lastModified;
+  final List<String> tags;
 
   HuggingFaceSpace({
     required this.id,
@@ -23,6 +24,7 @@ class HuggingFaceSpace {
     this.emoji,
     this.status,
     this.lastModified,
+    this.tags = const [],
   });
 
   factory HuggingFaceSpace.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class HuggingFaceSpace {
       emoji: json['cardData']?['emoji'],
       status: 'Running',
       lastModified: lastModified,
+      tags: List<String>.from(json['tags'] ?? []),
     );
   }
 }

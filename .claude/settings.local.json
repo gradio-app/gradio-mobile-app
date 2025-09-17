@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter create:*)"
+      "Bash(flutter create:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

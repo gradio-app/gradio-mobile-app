@@ -2,52 +2,57 @@ import 'package:flutter/material.dart';
 import '../models/huggingface_space.dart';
 import '../models/space_type.dart';
 import '../services/huggingface_service.dart';
-import '../widgets/space_type_card.dart';
 import 'gradio_webview_screen.dart';
-import 'spaces_by_type_screen.dart';
 
-class BrowseScreen extends StatefulWidget {
-  const BrowseScreen({super.key});
+class SpacesByTypeScreen extends StatefulWidget {
+  final SpaceType spaceType;
+
+  const SpacesByTypeScreen({super.key, required this.spaceType});
 
   @override
-  State<BrowseScreen> createState() => _BrowseScreenState();
+  State<SpacesByTypeScreen> createState() => _SpacesByTypeScreenState();
 }
 
-class _BrowseScreenState extends State<BrowseScreen> {
+class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
   List<HuggingFaceSpace> spaces = [];
-  bool isLoading = false;
+  bool isLoading = true;
+  bool isLoadingMore = false;
   String? error;
-  final TextEditingController _searchController = TextEditingController();
-  bool isSearching = false;
-  bool showSpaceTypes = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {});
-    });
+    loadSpacesByType();
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> loadTrendingSpaces() async {
+  void _scrollListener() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!isLoadingMore && !isLoading && spaces.length >= 20) {
+        loadMoreSpaces();
+      }
+    }
+  }
+
+  Future<void> loadSpacesByType() async {
     try {
       if (mounted) {
         setState(() {
           isLoading = true;
           error = null;
-          isSearching = false;
         });
       }
-      final trendingSpaces = await HuggingFaceService.getTrendingSpaces();
+      final typeSpaces = await HuggingFaceService.getSpacesByType(widget.spaceType.id);
       if (mounted) {
         setState(() {
-          spaces = trendingSpaces;
+          spaces = typeSpaces.take(20).toList(); // Initially load 20 spaces
           isLoading = false;
         });
       }
@@ -61,38 +66,29 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
   }
 
-  Future<void> searchSpaces(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() {
-        showSpaceTypes = true;
-        isSearching = false;
-        spaces = [];
-        error = null;
-      });
-      return;
-    }
+  Future<void> loadMoreSpaces() async {
+    if (isLoadingMore) return;
 
     try {
+      setState(() {
+        isLoadingMore = true;
+      });
+
+      final typeSpaces = await HuggingFaceService.getSpacesByType(widget.spaceType.id);
+
       if (mounted) {
         setState(() {
-          isLoading = true;
-          error = null;
-          isSearching = true;
-          showSpaceTypes = false;
-        });
-      }
-      final searchResults = await HuggingFaceService.searchSpaces(query);
-      if (mounted) {
-        setState(() {
-          spaces = searchResults;
-          isLoading = false;
+          // Add the next batch of spaces
+          final currentLength = spaces.length;
+          final additionalSpaces = typeSpaces.skip(currentLength).take(20).toList();
+          spaces.addAll(additionalSpaces);
+          isLoadingMore = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          error = e.toString();
-          isLoading = false;
+          isLoadingMore = false;
         });
       }
     }
@@ -101,7 +97,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   String _formatLastModified(DateTime lastModified) {
     final now = DateTime.now();
     final difference = now.difference(lastModified);
-    
+
     if (difference.inDays > 0) {
       return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
@@ -113,109 +109,96 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
   }
 
+  Color _getColor() {
+    try {
+      return Color(int.parse(widget.spaceType.color.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      return Colors.blue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = _getColor();
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Container(
-          height: 40,
-          child: TextField(
-            controller: _searchController,
-            onSubmitted: searchSpaces,
-            onChanged: (value) {
-              if (value.isEmpty && mounted) {
-                setState(() {
-                  showSpaceTypes = true;
-                  isSearching = false;
-                  spaces = [];
-                  error = null;
-                });
-              }
-            },
-            decoration: InputDecoration(
-              hintText: 'Search for Gradio spaces...',
-              hintStyle: TextStyle(color: Colors.grey[600]),
-              prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey[600]),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          showSpaceTypes = true;
-                          isSearching = false;
-                          spaces = [];
-                          error = null;
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        backgroundColor: color.withOpacity(0.1),
+        title: Row(
+          children: [
+            Icon(
+              widget.spaceType.icon,
+              size: 24,
+              color: color,
             ),
-          ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.spaceType.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      body: showSpaceTypes
-          ? GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: SpaceType.spaceTypes.length,
-              itemBuilder: (context, index) {
-                final spaceType = SpaceType.spaceTypes[index];
-                return SpaceTypeCard(
-                  spaceType: spaceType,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SpacesByTypeScreen(spaceType: spaceType),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: $error'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: loadSpacesByType,
+                        child: const Text('Retry'),
                       ),
-                    );
-                  },
-                );
-              },
-            )
-          : isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : error != null
+                    ],
+                  ),
+                )
+              : spaces.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.error, size: 64, color: Colors.red),
+                          Icon(
+                            widget.spaceType.icon,
+                            size: 64,
+                            color: color.withOpacity(0.5),
+                          ),
                           const SizedBox(height: 16),
-                          Text('Error: $error'),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                showSpaceTypes = true;
-                                isSearching = false;
-                                spaces = [];
-                                error = null;
-                              });
-                            },
-                            child: const Text('Back to Categories'),
+                          Text(
+                            'No ${widget.spaceType.name.toLowerCase()} spaces found',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Try again later as new spaces are added regularly',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ],
                       ),
                     )
                   : ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
-                      itemCount: spaces.length,
+                      itemCount: spaces.length + (isLoadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index >= spaces.length) {
+                          // Loading indicator at the bottom
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
                         final space = spaces[index];
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),

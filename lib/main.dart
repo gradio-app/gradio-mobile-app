@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/browse_screen.dart';
-import 'screens/favorites_screen.dart';
+import 'screens/bookmarks_screen.dart';
 import 'screens/outputs_screen.dart';
 
 void main() {
@@ -34,7 +34,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const BrowseScreen(),
-    const FavoritesScreen(),
+    const BookmarksScreen(),
     const OutputsScreen(),
   ];
 
