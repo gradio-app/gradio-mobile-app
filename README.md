@@ -4,12 +4,12 @@ A Flutter mobile application for browsing and managing Gradio spaces from Huggin
 
 ## Features
 
-- 🔐 **OAuth Authentication** - Secure login with HuggingFace
-- 👤 **Automatic Username Detection** - No manual username entry required
 - 📱 **Space Categories** - Browse by Image Generation, Text Generation, etc.
 - ❤️ **Liked Spaces** - View your public liked Gradio spaces
 - 👨‍💻 **Created Spaces** - See your own Gradio spaces
-- 🔄 **Pull-to-Refresh** - Keep your spaces up to date
+- 🔐 **OAuth Authentication** - Secure login with HuggingFace
+- 💾 **Save Generated Outputs (In Progress)** - Save generated outputs from spaces on device to come back to later
+
 
 ## Prerequisites
 
