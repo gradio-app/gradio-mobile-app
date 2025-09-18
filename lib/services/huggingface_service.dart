@@ -154,19 +154,16 @@ class HuggingFaceService {
 
   static Future<List<HuggingFaceSpace>> getUserLikedSpaces(String username, {String? accessToken}) async {
     try {
-      final headers = <String, String>{
-        'Accept': 'application/json',
-      };
+      print('Getting PUBLIC liked spaces for user: $username');
 
-      // Add authorization header if access token is provided
-      if (accessToken != null && accessToken.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $accessToken';
-      }
-
+      // Try to get public likes without authentication first
       final response = await http.get(
         Uri.parse('https://huggingface.co/api/users/$username/likes'),
-        headers: headers,
+        headers: {'Accept': 'application/json'},
       );
+
+      print('Public likes API response status: ${response.statusCode}');
+      print('Public likes API response body: ${response.body.length > 500 ? response.body.substring(0, 500) + "..." : response.body}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -177,6 +174,8 @@ class HuggingFaceService {
           final repoType = item['repo']['type'];
           return repoType == 'space';
         }).toList();
+
+        print('Found ${likedSpaces.length} liked spaces');
 
         // Get space names from liked spaces
         final spaceNames = likedSpaces
@@ -189,6 +188,8 @@ class HuggingFaceService {
             .cast<String>()
             .take(50) // Limit to first 50 to avoid too many API calls
             .toList();
+
+        print('Processing ${spaceNames.length} space names: ${spaceNames.take(5)}...');
 
         // Fetch all spaces from the spaces API and filter for the liked ones
         final allSpacesResponse = await http.get(
@@ -232,21 +233,41 @@ class HuggingFaceService {
         // Sort by likes (most popular first)
         gradioSpaces.sort((a, b) => b.likes.compareTo(a.likes));
 
+        print('Returning ${gradioSpaces.length} Gradio spaces from public likes');
         return gradioSpaces;
-      } else if (response.statusCode == 401) {
-        throw Exception('Authentication required. Please provide a valid access token.');
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        print('Public likes API requires authentication or user has private likes');
+        return [];
       } else if (response.statusCode == 404) {
-        throw Exception('User "$username" not found or likes are private.');
+        throw Exception('User "$username" not found.');
       } else {
-        throw Exception('Failed to fetch liked spaces: ${response.statusCode}');
+        print('Unexpected response: ${response.statusCode} - ${response.body}');
+        return [];
       }
     } catch (e) {
-      if (e.toString().contains('Authentication required') ||
-          e.toString().contains('not found') ||
-          e.toString().contains('private')) {
-        rethrow;
-      }
-      throw Exception('Error fetching liked spaces: $e');
+      print('Error fetching public liked spaces: $e');
+      return [];
+    }
+  }
+
+  /// Fallback method to get liked spaces using browser-like access
+  static Future<List<HuggingFaceSpace>> _getBrowserBasedLikedSpaces(String username) async {
+    try {
+      print('Using browser-based fallback for liked spaces');
+
+      // For now, we'll return a message that user needs to check manually
+      // This could be enhanced to use web scraping or other methods
+
+      // Alternative: Check user's public profile for any publicly visible liked spaces
+      // But most liked spaces are private, so we'll return empty list with explanation
+
+      print('Browser-based liked spaces access not yet implemented');
+      print('Liked spaces are typically private and require authenticated session');
+
+      return [];
+    } catch (e) {
+      print('Browser-based fallback failed: $e');
+      return [];
     }
   }
 }

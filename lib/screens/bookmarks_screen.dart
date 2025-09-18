@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../models/huggingface_space.dart';
 import '../services/huggingface_service.dart';
+import '../services/hf_oauth_service.dart';
 import 'gradio_webview_screen.dart';
 
 class BookmarksScreen extends StatefulWidget {
@@ -16,8 +13,7 @@ class BookmarksScreen extends StatefulWidget {
 
 class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderStateMixin {
   bool isLoggedIn = false;
-  String? username;
-  String? accessToken;
+  HuggingFaceUser? currentUser;
   List<HuggingFaceSpace> likedSpaces = [];
   List<HuggingFaceSpace> createdSpaces = [];
   bool isLoading = false;
@@ -31,7 +27,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChange);
-    _checkSavedSession();
+    _checkAuthentication();
   }
 
   void _onTabChange() {
@@ -44,14 +40,29 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     super.dispose();
   }
 
-  Future<void> _checkSavedSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedUsername = prefs.getString('hf_username');
-    final savedAccessToken = prefs.getString('hf_access_token');
+  Future<void> _checkAuthentication() async {
+    setState(() {
+      isLoading = true;
+    });
 
-    if (savedUsername != null && savedUsername.isNotEmpty) {
-      accessToken = savedAccessToken;
-      _fetchUserSpaces(savedUsername);
+    try {
+      final isAuth = await HFOAuthService.isAuthenticated();
+      if (isAuth) {
+        final user = await HFOAuthService.getCurrentUser();
+        if (user != null) {
+          setState(() {
+            currentUser = user;
+            isLoggedIn = true;
+          });
+          await _fetchUserSpaces(user.username);
+        }
+      }
+    } catch (e) {
+      print('Authentication check error: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -59,37 +70,35 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   void didUpdateWidget(BookmarksScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Refresh data when widget is updated (e.g., when navigating back to this screen)
-    if (isLoggedIn && username != null) {
+    if (isLoggedIn && currentUser != null) {
       _refreshUserSpaces();
     }
   }
 
-  Future<void> _fetchUserSpaces(String enteredUsername, {bool showLoadingIndicator = true}) async {
+  Future<void> _fetchUserSpaces(String username, {bool showLoadingIndicator = true}) async {
     if (showLoadingIndicator) {
       setState(() {
         isLoading = true;
         error = null;
-        username = enteredUsername;
       });
     }
 
     try {
+      final accessToken = await HFOAuthService.getAccessToken();
+
       // Fetch both liked and created spaces in parallel
       final futures = await Future.wait([
-        HuggingFaceService.getUserLikedSpaces(enteredUsername, accessToken: accessToken),
-        HuggingFaceService.getUserCreatedSpaces(enteredUsername),
+        HuggingFaceService.getUserLikedSpaces(username, accessToken: accessToken),
+        HuggingFaceService.getUserCreatedSpaces(username),
       ]);
 
       setState(() {
         likedSpaces = futures[0];
         createdSpaces = futures[1];
-        isLoggedIn = true;
         isLoading = false;
-        username = enteredUsername;
       });
 
-      await _saveSession(enteredUsername, token: accessToken);
-
+      // Only show success message on first load (when loading indicator was shown)
       if (mounted && showLoadingIndicator) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -102,9 +111,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       setState(() {
         error = e.toString();
         isLoading = false;
-        if (showLoadingIndicator) {
-          isLoggedIn = false;
-        }
       });
 
       if (mounted) {
@@ -119,56 +125,71 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Future<void> _refreshUserSpaces() async {
-    if (username != null) {
-      await _fetchUserSpaces(username!, showLoadingIndicator: false);
+    if (currentUser != null) {
+      await _fetchUserSpaces(currentUser!.username, showLoadingIndicator: false);
     }
   }
 
-  Future<void> _saveSession(String username, {String? token}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('hf_username', username);
-    if (token != null && token.isNotEmpty) {
-      await prefs.setString('hf_access_token', token);
-    }
-  }
+  Future<void> _signInWithOAuth() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
 
-  Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('hf_username');
-    await prefs.remove('hf_access_token');
-  }
+    try {
+      final user = await HFOAuthService.login();
+      if (user != null) {
+        setState(() {
+          currentUser = user;
+          isLoggedIn = true;
+        });
 
-  void _signInToHuggingFace() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (BuildContext context) {
-        return _WebViewLoginSheet(
-          onLoginSuccess: (String detectedUsername, {String? token}) {
-            Navigator.of(context).pop();
-            if (detectedUsername.isNotEmpty) {
-              accessToken = token;
-              _fetchUserSpaces(detectedUsername);
-            } else {
-              // Show error if username detection fails
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not detect username automatically. Please try signing in again.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            }
-          },
-          onLoginCancelled: () {
-            Navigator.of(context).pop();
-          },
+        await _fetchUserSpaces(user.username);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Welcome back, ${user.username}!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        error = 'Login failed: ${e.toString()}';
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
-      },
-    );
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _logout() async {
+    await HFOAuthService.logout();
+    setState(() {
+      isLoggedIn = false;
+      currentUser = null;
+      likedSpaces.clear();
+      createdSpaces.clear();
+      error = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signed out successfully')),
+      );
+    }
   }
 
 
@@ -322,7 +343,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: _signInToHuggingFace,
+              onPressed: isLoading ? null : _signInWithOAuth,
               icon: const Icon(Icons.login),
               label: const Text('Sign in with Hugging Face'),
               style: ElevatedButton.styleFrom(
@@ -336,25 +357,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     }
 
     if (likedSpaces.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.favorite_border,
               size: 100,
               color: Colors.grey,
             ),
-            SizedBox(height: 20),
-            Text(
-              'No liked spaces found',
+            const SizedBox(height: 20),
+            const Text(
+              'No public liked spaces found',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
-              'Like some Gradio spaces on Hugging Face to see them here',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              'Only public likes are shown here.\n\nIf you have liked spaces set to private, they won\'t appear in this list.',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Open user's profile page in browser
+                // This would require url_launcher
+              },
+              icon: const Icon(Icons.open_in_browser),
+              label: const Text('View on HuggingFace'),
             ),
           ],
         ),
@@ -397,7 +427,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: _signInToHuggingFace,
+              onPressed: isLoading ? null : _signInWithOAuth,
               icon: const Icon(Icons.login),
               label: const Text('Sign in with Hugging Face'),
               style: ElevatedButton.styleFrom(
@@ -457,22 +487,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         actions: isLoggedIn ? [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _clearSession();
-              setState(() {
-                isLoggedIn = false;
-                username = null;
-                accessToken = null;
-                likedSpaces.clear();
-                createdSpaces.clear();
-                error = null;
-              });
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Signed out')),
-                );
-              }
-            },
+            onPressed: _logout,
           ),
         ] : null,
         bottom: TabBar(
@@ -502,8 +517,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () {
-                          if (username != null) {
-                            _fetchUserSpaces(username!);
+                          if (currentUser != null) {
+                            _fetchUserSpaces(currentUser!.username);
                           }
                         },
                         child: const Text('Retry'),
@@ -522,258 +537,3 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 }
 
-// Keep the existing WebView login implementation
-class _WebViewLoginSheet extends StatefulWidget {
-  final Function(String, {String? token}) onLoginSuccess;
-  final VoidCallback onLoginCancelled;
-
-  const _WebViewLoginSheet({
-    required this.onLoginSuccess,
-    required this.onLoginCancelled,
-  });
-
-  @override
-  State<_WebViewLoginSheet> createState() => _WebViewLoginSheetState();
-}
-
-class _WebViewLoginSheetState extends State<_WebViewLoginSheet> {
-  late final WebViewController controller;
-  bool isLoading = true;
-  String? detectedUsername;
-  String? detectedAccessToken;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
-        'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 '
-        'Mobile/15E148 Safari/604.1 GradioMobileApp/1.0'
-      )
-      ..enableZoom(true)
-      ..setBackgroundColor(Colors.white)
-      ..addJavaScriptChannel(
-        'FlutterLogin',
-        onMessageReceived: (JavaScriptMessage message) {
-          print('WebView message received: ${message.message}'); // Debug
-
-          if (message.message.startsWith('oauth_success:')) {
-            try {
-              final oauthDataJson = message.message.substring(13).trim();
-              print('Raw JSON data: $oauthDataJson'); // Debug
-
-              final oauthData = json.decode(oauthDataJson);
-
-              final extractedUsername = oauthData['username'];
-              final extractedAccessToken = oauthData['accessToken'];
-
-              print('Extracted username: $extractedUsername'); // Debug
-
-              final invalidUsernames = [
-                'enterprise', 'welcome', 'home', 'dashboard', 'profile',
-                'account', 'user', 'settings', 'v1', 'api', 'docs', 'datasets',
-                'models', 'spaces', 'papers', 'login', 'join', 'blog',
-                'pricing', 'inference-endpoints', 'hub', 'tasks', 'learn',
-                'organizations', 'new'
-              ];
-
-              if (extractedUsername != null &&
-                  extractedUsername.isNotEmpty &&
-                  !invalidUsernames.contains(extractedUsername.toLowerCase()) &&
-                  extractedUsername.length >= 2 &&
-                  extractedUsername.length <= 39 &&
-                  RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(extractedUsername)) {
-                detectedUsername = extractedUsername;
-                detectedAccessToken = extractedAccessToken;
-
-                print('Valid username detected: $extractedUsername'); // Debug
-
-                if (mounted) {
-                  widget.onLoginSuccess(extractedUsername, token: extractedAccessToken);
-                }
-              } else {
-                print('Invalid username: $extractedUsername (in invalid list: ${invalidUsernames.contains(extractedUsername?.toLowerCase())})'); // Debug
-                detectedUsername = null;
-                detectedAccessToken = null;
-              }
-
-            } catch (e) {
-              print('Error parsing OAuth success data: $e');
-              print('Raw message: ${message.message}');
-            }
-          } else if (message.message.startsWith('oauth_failed:')) {
-            print('OAuth failed: ${message.message}'); // Debug
-          }
-        },
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            print('Page started: $url'); // Debug
-            if (mounted) {
-              setState(() {
-                isLoading = true;
-              });
-            }
-          },
-          onPageFinished: (String url) {
-            print('Page finished: $url'); // Debug
-            if (mounted) {
-              setState(() {
-                isLoading = false;
-              });
-              _checkLoginStatus(url);
-            }
-          },
-          onUrlChange: (UrlChange change) {
-            print('URL changed: ${change.url}'); // Debug
-            if (change.url != null) {
-              _checkLoginStatus(change.url!);
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://huggingface.co/login'));
-  }
-
-  Future<void> _checkLoginStatus(String url) async {
-    if (url.contains('huggingface.co') && !url.contains('/login') && !url.contains('/join')) {
-      await controller.runJavaScript(r'''
-        (async function() {
-          try {
-            console.log('Checking login status for URL:', window.location.href);
-
-            // Primary method: get user info from the whoami API (like HF Python client)
-            var response = await fetch('/api/whoami', {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              }
-            });
-
-            console.log('Whoami response status:', response.status);
-
-            if (response.ok) {
-              var userData = await response.json();
-              console.log('User data received:', userData);
-
-              // Try different possible username fields
-              var detectedUsername = userData.name || userData.username || userData.login;
-
-              if (detectedUsername) {
-                console.log('Username detected from whoami:', detectedUsername);
-                FlutterLogin.postMessage('oauth_success:' + JSON.stringify({
-                  accessToken: userData.access_token || null,
-                  userInfo: userData,
-                  username: detectedUsername
-                }));
-                return;
-              }
-            }
-
-            // Secondary: Check if we're on a user's profile page
-            if (window.location.pathname.startsWith('/') && window.location.pathname !== '/') {
-              var pathParts = window.location.pathname.split('/').filter(part => part);
-              if (pathParts.length >= 1) {
-                var potentialUsername = pathParts[0];
-                var invalidPaths = [
-                  'spaces', 'models', 'datasets', 'docs', 'join', 'login', 'settings',
-                  'organizations', 'new', 'welcome', 'enterprise', 'pricing', 'blog',
-                  'tasks', 'learn', 'hub', 'api', 'papers', 'inference-endpoints'
-                ];
-
-                if (!invalidPaths.includes(potentialUsername.toLowerCase()) &&
-                    potentialUsername.length >= 2 && potentialUsername.length <= 39 &&
-                    /^[a-zA-Z0-9_-]+$/.test(potentialUsername)) {
-                  console.log('Username detected from URL path:', potentialUsername);
-                  FlutterLogin.postMessage('oauth_success:' + JSON.stringify({
-                    accessToken: null,
-                    userInfo: { name: potentialUsername },
-                    username: potentialUsername
-                  }));
-                  return;
-                }
-              }
-            }
-
-          } catch (e) {
-            console.log('Login check failed:', e);
-          }
-
-          console.log('No username detected, failing');
-          FlutterLogin.postMessage('oauth_failed:no_user_data');
-        })();
-      ''');
-
-      Future.delayed(const Duration(milliseconds: 5000), () {
-        if (mounted && detectedUsername?.isEmpty != false) {
-          widget.onLoginSuccess('', token: detectedAccessToken);
-        }
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Sign in to Hugging Face',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: widget.onLoginCancelled,
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                WebViewWidget(controller: controller),
-                if (isLoading)
-                  const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text(
-                          'Loading Hugging Face login...',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
