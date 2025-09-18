@@ -120,6 +120,10 @@ flutter run --release
 
 ## Screenshots
 
-![Browse Screen](screenshots/browse_screen.png)
-![Liked Spaces](screenshots/likes_screen.png)
-![Generated Outputs](screenshots/outputs_screen.png)
+<div align="center">
+
+<img src="screenshots/browse_screen.png" width="250" alt="Browse Screen">
+<img src="screenshots/likes_screen.png" width="250" alt="Liked Spaces">
+<img src="screenshots/outputs_screen.png" width="250" alt="Generated Outputs">
+
+</div>
