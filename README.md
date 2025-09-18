@@ -117,3 +117,9 @@ flutter run --release
 1. Open `ios/Runner.xcworkspace` in Xcode
 2. Select your target device/simulator
 3. Press `Cmd + R` to run
+
+## Screenshots
+
+![Browse Screen](screenshots/browse_screen.png)
+![Liked Spaces](screenshots/likes_screen.png)
+![Generated Outputs](screenshots/outputs_screen.png)
