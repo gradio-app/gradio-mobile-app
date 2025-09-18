@@ -53,7 +53,29 @@ The app requires a HuggingFace OAuth application:
    - **Scopes**: Select `openid`, `profile`, and `read-repos`
 4. Save and copy the generated **Client ID**
 
-## Setup Instructions
+## Quick Test (Prebuilt iOS App)
+
+If you want to test the app immediately without setting up Flutter, you can use the prebuilt iOS app.
+
+### iOS Simulator (macOS only)
+1. Download [Runner-iOS-Simulator.zip](./Runner-iOS-Simulator.zip)
+2. Unzip the file to extract `Runner.app`
+3. Open iOS Simulator:
+   ```bash
+   open -a Simulator
+   ```
+4. Wait for the simulator to load, then drag `Runner.app` onto the simulator screen
+5. The app will install automatically and appear on the home screen
+6. Tap the app icon to launch it
+
+**Requirements**: macOS with Xcode and iOS Simulator installed.
+
+**Note**: The prebuilt app is configured for iOS Simulator only and won't work on physical devices.
+
+---
+
+## Running the App (Development)
+### Setup Instructions
 
 ### 1. Clone and Install Dependencies
 
@@ -77,8 +99,6 @@ cd ..
 # Check Flutter installation and connected devices
 flutter doctor
 ```
-
-## Running the App
 
 ### Option 1: Using Flutter CLI
 
