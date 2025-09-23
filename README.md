@@ -12,6 +12,8 @@ A Flutter mobile application for browsing and managing Gradio spaces from Huggin
 
 
 ## Prerequisites
+Follow [these](https://docs.flutter.dev/get-started/install/macos/mobile-ios) instructions for setting up Flutter on iOS.
+Follow [these](https://docs.flutter.dev/get-started/install/macos/mobile-android) instructions for setting up Flutter on Android.
 
 Before running this app, ensure you have:
 
@@ -40,18 +42,6 @@ sudo gem install cocoapods
 # Accept Android licenses
 flutter doctor --android-licenses
 ```
-
-### 3. HuggingFace OAuth Application
-
-The app requires a HuggingFace OAuth application:
-
-1. Go to [HuggingFace Connected Applications](https://huggingface.co/settings/connected-applications)
-2. Click "Create Application"
-3. Fill in:
-   - **Application Name**: `Gradio Mobile App` (or your preferred name)
-   - **Redirect URI**: `com.example.gradiomobileapp://oauth`
-   - **Scopes**: Select `openid`, `profile`, and `read-repos`
-4. Save and copy the generated **Client ID**
 
 ## Quick Test (Prebuilt iOS App)
 
