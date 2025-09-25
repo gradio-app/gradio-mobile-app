@@ -139,7 +139,7 @@ class FileStorageService {
         mimeType: mimeType,
         fileSizeBytes: fileSizeBytes,
         localFilePath: localFilePath,
-        timestamp: timestamp,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(timestamp),
         description: description,
         metadata: metadata,
       );
