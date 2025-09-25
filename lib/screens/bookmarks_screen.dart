@@ -41,15 +41,17 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Future<void> _checkAuthentication() async {
-    setState(() {
-      isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
 
     try {
       final isAuth = await HFOAuthService.isAuthenticated();
       if (isAuth) {
         final user = await HFOAuthService.getCurrentUser();
-        if (user != null) {
+        if (user != null && mounted) {
           setState(() {
             currentUser = user;
             isLoggedIn = true;
@@ -60,9 +62,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     } catch (e) {
       print('Authentication check error: $e');
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -76,7 +80,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Future<void> _fetchUserSpaces(String username, {bool showLoadingIndicator = true}) async {
-    if (showLoadingIndicator) {
+    if (showLoadingIndicator && mounted) {
       setState(() {
         isLoading = true;
         error = null;
@@ -92,11 +96,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         HuggingFaceService.getUserCreatedSpaces(username),
       ]);
 
-      setState(() {
-        likedSpaces = futures[0];
-        createdSpaces = futures[1];
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          likedSpaces = futures[0];
+          createdSpaces = futures[1];
+          isLoading = false;
+        });
+      }
 
       // Only show success message on first load (when loading indicator was shown)
       if (mounted && showLoadingIndicator) {
@@ -108,10 +114,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         );
       }
     } catch (e) {
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,14 +139,16 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Future<void> _signInWithOAuth() async {
-    setState(() {
-      isLoading = true;
-      error = null;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+        error = null;
+      });
+    }
 
     try {
       final user = await HFOAuthService.login();
-      if (user != null) {
+      if (user != null && mounted) {
         setState(() {
           currentUser = user;
           isLoggedIn = true;
@@ -156,11 +166,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         }
       }
     } catch (e) {
-      setState(() {
-        error = 'Login failed: ${e.toString()}';
-      });
-
       if (mounted) {
+        setState(() {
+          error = 'Login failed: ${e.toString()}';
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Login failed: $e'),
@@ -169,9 +179,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         );
       }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
