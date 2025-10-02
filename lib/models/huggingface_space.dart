@@ -48,6 +48,32 @@ class HuggingFaceSpace {
       }
     }
     
+    // Parse runtime status from API
+    String? runtimeStatus;
+    if (json['runtime'] != null && json['runtime']['stage'] != null) {
+      final stage = json['runtime']['stage'].toString().toLowerCase();
+      switch (stage) {
+        case 'running':
+        case 'running_building':
+          runtimeStatus = 'Running';
+          break;
+        case 'stopped':
+        case 'paused':
+          runtimeStatus = 'Stopped';
+          break;
+        case 'building':
+        case 'app_starting':
+          runtimeStatus = 'Building';
+          break;
+        case 'runtime_error':
+        case 'build_error':
+          runtimeStatus = 'Error';
+          break;
+        default:
+          runtimeStatus = stage.replaceAll('_', ' ');
+      }
+    }
+
     return HuggingFaceSpace(
       id: id,
       name: name,
@@ -58,7 +84,7 @@ class HuggingFaceSpace {
       url: url,
       thumbnailUrl: thumbnailUrl,
       emoji: json['cardData']?['emoji'],
-      status: 'Running',
+      status: runtimeStatus,
       lastModified: lastModified,
       tags: List<String>.from(json['tags'] ?? []),
     );
