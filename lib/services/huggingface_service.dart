@@ -2,40 +2,65 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/huggingface_space.dart';
 import '../models/space_type.dart';
+import 'cache_service.dart';
 
 class HuggingFaceService {
   static const String baseUrl = 'https://huggingface.co/api/spaces';
 
-  static Future<List<HuggingFaceSpace>> getTrendingSpaces() async {
+  static String? _parseLinkHeader(String? linkHeader) {
+    if (linkHeader == null || linkHeader.isEmpty) return null;
+
+    final links = linkHeader.split(',');
+    for (final link in links) {
+      if (link.contains('rel="next"')) {
+        final match = RegExp(r'<(.+?)>').firstMatch(link);
+        if (match != null) {
+          return match.group(1);
+        }
+      }
+    }
+    return null;
+  }
+
+  static Future<List<HuggingFaceSpace>> getTrendingSpaces({bool useCache = true}) async {
     try {
+      if (useCache) {
+        final cachedData = await CacheService.getFromCache('trending_spaces');
+        if (cachedData != null) {
+          final List<dynamic> cachedList = cachedData as List;
+          return cachedList.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+        }
+      }
+
       final response = await http.get(
-        Uri.parse('$baseUrl?sort=likes&direction=-1&limit=500&full=true'),
+        Uri.parse('$baseUrl?sort=likes&direction=-1&limit=500&full=true&filter=gradio'),
         headers: {'Accept': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final allSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
-        
-        // Filter to only include Gradio spaces
-        final gradioSpaces = allSpaces.where((space) => 
-          space.sdk?.toLowerCase() == 'gradio'
-        ).toList();
-        
-        // Filter to only include spaces updated in the last 2 months
+        final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+
         final now = DateTime.now();
         final twoMonthsAgo = now.subtract(const Duration(days: 60));
-        
+
         final recentSpaces = gradioSpaces.where((space) {
           if (space.lastModified == null) return false;
           return space.lastModified!.isAfter(twoMonthsAgo);
         }).toList();
-        
-        // Sort by likes (already sorted from API, but ensure order)
+
         recentSpaces.sort((a, b) => b.likes.compareTo(a.likes));
-        
-        // Return top 20 trending spaces
-        return recentSpaces.take(20).toList();
+
+        final result = recentSpaces.take(20).toList();
+
+        if (useCache) {
+          await CacheService.saveToCache(
+            'trending_spaces',
+            result.map((space) => space.toJson()).toList(),
+          );
+        }
+
+        return result;
       } else {
         throw Exception('Failed to load spaces: ${response.statusCode}');
       }
@@ -53,14 +78,7 @@ class HuggingFaceService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final allSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
-        
-        // Filter to only include Gradio spaces
-        final gradioSpaces = allSpaces.where((space) => 
-          space.sdk?.toLowerCase() == 'gradio'
-        ).toList();
-        
-        return gradioSpaces;
+        return data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
       } else {
         throw Exception('Failed to search spaces: ${response.statusCode}');
       }
@@ -71,20 +89,14 @@ class HuggingFaceService {
 
   static Future<List<HuggingFaceSpace>> getUserCreatedSpaces(String username) async {
     try {
-      // Fetch user's created spaces (most reliable)
       final response = await http.get(
-        Uri.parse('$baseUrl?author=$username&sort=likes&direction=-1&limit=100&full=true'),
+        Uri.parse('$baseUrl?author=$username&sort=likes&direction=-1&limit=100&full=true&filter=gradio'),
         headers: {'Accept': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final userSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
-        
-        // Filter to only include Gradio spaces by the user
-        final gradioSpaces = userSpaces.where((space) => 
-          space.sdk?.toLowerCase() == 'gradio' && space.author.toLowerCase() == username.toLowerCase()
-        ).toList();
+        final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
         
         if (gradioSpaces.isEmpty) {
           throw Exception('No Gradio spaces found for user "$username".');
@@ -102,34 +114,129 @@ class HuggingFaceService {
     }
   }
 
-  static Future<List<HuggingFaceSpace>> getSpacesByType(String spaceTypeId) async {
+  static Future<List<HuggingFaceSpace>> getSpacesByType(String spaceTypeId, {bool useCache = true}) async {
+    try {
+      if (useCache) {
+        final cachedData = await CacheService.getFromCache('spaces_by_type_$spaceTypeId');
+        if (cachedData != null) {
+          final List<dynamic> cachedList = cachedData as List;
+          return cachedList.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+        }
+      }
+
+      final spaceType = SpaceType.spaceTypes.firstWhere((type) => type.id == spaceTypeId);
+
+      if (spaceType.semanticCategory != null) {
+        final response = await http.get(
+          Uri.parse('$baseUrl/semantic-search?category=${spaceType.semanticCategory}'),
+          headers: {'Accept': 'application/json'},
+        );
+
+        if (response.statusCode == 200) {
+          final List<dynamic> data = json.decode(response.body);
+          final spaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+
+          final result = spaces.where((space) => space.sdk?.toLowerCase() == 'gradio').toList();
+
+          if (useCache) {
+            await CacheService.saveToCache(
+              'spaces_by_type_$spaceTypeId',
+              result.map((space) => space.toJson()).toList(),
+            );
+          }
+
+          return result;
+        } else {
+          throw Exception('Failed to load spaces: ${response.statusCode}');
+        }
+      } else {
+        final primaryTag = spaceType.matchingTags.isNotEmpty ? spaceType.matchingTags.first : '';
+        final filterParam = primaryTag.isNotEmpty ? '&filter=$primaryTag' : '';
+
+        final response = await http.get(
+          Uri.parse('$baseUrl?sort=likes&direction=-1&limit=5000&full=true&filter=gradio$filterParam'),
+          headers: {'Accept': 'application/json'},
+        );
+
+        if (response.statusCode == 200) {
+          final List<dynamic> data = json.decode(response.body);
+          final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+
+          final now = DateTime.now();
+          final twelveMonthsAgo = now.subtract(const Duration(days: 365));
+
+          final recentSpaces = gradioSpaces.where((space) {
+            if (space.lastModified == null) return true;
+            return space.lastModified!.isAfter(twelveMonthsAgo);
+          }).toList();
+
+          final typedSpaces = recentSpaces.where((space) {
+            final detectedType = SpaceType.getSpaceTypeForTags(
+              space.tags,
+              title: space.name,
+              description: space.description,
+            );
+            return detectedType?.id == spaceTypeId;
+          }).toList();
+
+          typedSpaces.sort((a, b) => b.likes.compareTo(a.likes));
+
+          final result = typedSpaces.take(500).toList();
+
+          if (useCache) {
+            await CacheService.saveToCache(
+              'spaces_by_type_$spaceTypeId',
+              result.map((space) => space.toJson()).toList(),
+            );
+          }
+
+          return result;
+        } else {
+          throw Exception('Failed to load spaces: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      throw Exception('Error fetching spaces by type: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSpacesByTypeWithPagination(
+    String spaceTypeId, {
+    String? pageUrl,
+    int limit = 100,
+  }) async {
     try {
       final spaceType = SpaceType.spaceTypes.firstWhere((type) => type.id == spaceTypeId);
 
+      String url;
+      if (pageUrl != null) {
+        url = pageUrl;
+      } else {
+        final primaryTag = spaceType.matchingTags.isNotEmpty ? spaceType.matchingTags.first : '';
+        final filterParam = primaryTag.isNotEmpty ? '&filter=$primaryTag' : '';
+        url = '$baseUrl?sort=likes&direction=-1&limit=$limit&full=true&filter=gradio$filterParam';
+      }
+
       final response = await http.get(
-        Uri.parse('$baseUrl?sort=likes&direction=-1&limit=1000&full=true'),
+        Uri.parse(url),
         headers: {'Accept': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        final allSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+        final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
 
-        // Filter to only include Gradio spaces
-        final gradioSpaces = allSpaces.where((space) =>
-          space.sdk?.toLowerCase() == 'gradio'
-        ).toList();
+        final linkHeader = response.headers['link'];
+        final nextPageUrl = _parseLinkHeader(linkHeader);
 
-        // Filter to only include spaces updated in the last 12 months (more lenient)
         final now = DateTime.now();
         final twelveMonthsAgo = now.subtract(const Duration(days: 365));
 
         final recentSpaces = gradioSpaces.where((space) {
-          if (space.lastModified == null) return true; // Include spaces without lastModified
+          if (space.lastModified == null) return true;
           return space.lastModified!.isAfter(twelveMonthsAgo);
         }).toList();
 
-        // Filter by space type
         final typedSpaces = recentSpaces.where((space) {
           final detectedType = SpaceType.getSpaceTypeForTags(
             space.tags,
@@ -139,11 +246,12 @@ class HuggingFaceService {
           return detectedType?.id == spaceTypeId;
         }).toList();
 
-        // Sort by likes
         typedSpaces.sort((a, b) => b.likes.compareTo(a.likes));
 
-        // Return top 100 spaces of this type
-        return typedSpaces.take(100).toList();
+        return {
+          'spaces': typedSpaces,
+          'nextPageUrl': nextPageUrl,
+        };
       } else {
         throw Exception('Failed to load spaces: ${response.statusCode}');
       }
@@ -168,7 +276,6 @@ class HuggingFaceService {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
 
-        // Filter to only include spaces (not models or datasets)
         final likedSpaces = data.where((item) {
           if (item['repo'] == null) return false;
           final repoType = item['repo']['type'];
@@ -177,23 +284,23 @@ class HuggingFaceService {
 
         print('Found ${likedSpaces.length} liked spaces');
 
-        // Get space names from liked spaces
-        final spaceNames = likedSpaces
+        final spaceNamesWithTimestamp = likedSpaces
             .map((item) {
               final repo = item['repo'];
               if (repo == null) return null;
-              return repo['name'] as String?;
+              return {
+                'name': repo['name'] as String?,
+                'likedAt': item['item']?['updatedAt'] as String?,
+              };
             })
-            .where((name) => name != null)
-            .cast<String>()
-            .take(50) // Limit to first 50 to avoid too many API calls
+            .where((item) => item != null && item['name'] != null)
+            .cast<Map<String, String?>>()
             .toList();
 
-        print('Processing ${spaceNames.length} space names: ${spaceNames.take(5)}...');
+        print('Processing ${spaceNamesWithTimestamp.length} space names: ${spaceNamesWithTimestamp.take(5)}...');
 
-        // Fetch all spaces from the spaces API and filter for the liked ones
         final allSpacesResponse = await http.get(
-          Uri.parse('https://huggingface.co/api/spaces?sort=likes&direction=-1&limit=1000&full=true'),
+          Uri.parse('https://huggingface.co/api/spaces?sort=likes&direction=-1&limit=5000&full=true&filter=gradio'),
           headers: {'Accept': 'application/json'},
         );
 
@@ -202,8 +309,12 @@ class HuggingFaceService {
           final List<dynamic> allSpacesData = json.decode(allSpacesResponse.body);
           final allSpaces = allSpacesData.map((json) => HuggingFaceSpace.fromJson(json)).toList();
 
-          // Filter to only include liked spaces
-          for (final spaceName in spaceNames) {
+          for (final spaceData in spaceNamesWithTimestamp) {
+            final spaceName = spaceData['name'];
+            final likedAtStr = spaceData['likedAt'];
+
+            if (spaceName == null) continue;
+
             try {
               final matchingSpace = allSpaces.firstWhere(
                 (space) => space.id == spaceName,
@@ -217,24 +328,39 @@ class HuggingFaceService {
                   tags: [],
                 ),
               );
-              spaces.add(matchingSpace);
+
+              final spaceWithLikedAt = HuggingFaceSpace(
+                id: matchingSpace.id,
+                name: matchingSpace.name,
+                description: matchingSpace.description,
+                author: matchingSpace.author,
+                likes: matchingSpace.likes,
+                sdk: matchingSpace.sdk,
+                url: matchingSpace.url,
+                thumbnailUrl: matchingSpace.thumbnailUrl,
+                emoji: matchingSpace.emoji,
+                status: matchingSpace.status,
+                lastModified: matchingSpace.lastModified,
+                tags: matchingSpace.tags,
+                likedAt: likedAtStr != null ? DateTime.parse(likedAtStr) : null,
+              );
+
+              spaces.add(spaceWithLikedAt);
             } catch (e) {
-              // Skip spaces that can't be processed
               continue;
             }
           }
         }
 
-        // Filter to only include Gradio spaces
-        final gradioSpaces = spaces.where((space) =>
-          space.sdk?.toLowerCase() == 'gradio'
-        ).toList();
+        spaces.sort((a, b) {
+          if (a.likedAt == null && b.likedAt == null) return 0;
+          if (a.likedAt == null) return 1;
+          if (b.likedAt == null) return -1;
+          return b.likedAt!.compareTo(a.likedAt!);
+        });
 
-        // Sort by likes (most popular first)
-        gradioSpaces.sort((a, b) => b.likes.compareTo(a.likes));
-
-        print('Returning ${gradioSpaces.length} Gradio spaces from public likes');
-        return gradioSpaces;
+        print('Returning ${spaces.length} Gradio spaces from public likes');
+        return spaces;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         print('Public likes API requires authentication or user has private likes');
         return [];
@@ -250,24 +376,55 @@ class HuggingFaceService {
     }
   }
 
-  /// Fallback method to get liked spaces using browser-like access
-  static Future<List<HuggingFaceSpace>> _getBrowserBasedLikedSpaces(String username) async {
+  static Future<Map<String, int>> getPopularTags({int limit = 1000}) async {
     try {
-      print('Using browser-based fallback for liked spaces');
+      final response = await http.get(
+        Uri.parse('$baseUrl?sort=likes&direction=-1&limit=$limit&full=true&filter=gradio'),
+        headers: {'Accept': 'application/json'},
+      );
 
-      // For now, we'll return a message that user needs to check manually
-      // This could be enhanced to use web scraping or other methods
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final spaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
 
-      // Alternative: Check user's public profile for any publicly visible liked spaces
-      // But most liked spaces are private, so we'll return empty list with explanation
+        final Map<String, int> tagFrequency = {};
+        for (final space in spaces) {
+          for (final tag in space.tags) {
+            tagFrequency[tag] = (tagFrequency[tag] ?? 0) + 1;
+          }
+        }
 
-      print('Browser-based liked spaces access not yet implemented');
-      print('Liked spaces are typically private and require authenticated session');
+        final sortedTags = Map.fromEntries(
+          tagFrequency.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value))
+        );
 
-      return [];
+        return sortedTags;
+      } else {
+        throw Exception('Failed to fetch tags: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Browser-based fallback failed: $e');
-      return [];
+      throw Exception('Error fetching popular tags: $e');
+    }
+  }
+
+  static Future<List<String>> getSuggestedCategories({int minFrequency = 10}) async {
+    try {
+      final tagFrequency = await getPopularTags();
+
+      final existingTags = SpaceType.spaceTypes
+          .expand((type) => type.matchingTags)
+          .toSet();
+
+      final suggestedTags = tagFrequency.entries
+          .where((entry) => entry.value >= minFrequency && !existingTags.contains(entry.key))
+          .map((entry) => entry.key)
+          .take(20)
+          .toList();
+
+      return suggestedTags;
+    } catch (e) {
+      throw Exception('Error getting suggested categories: $e');
     }
   }
 }

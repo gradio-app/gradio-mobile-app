@@ -32,7 +32,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
-            // Update loading progress if needed
           },
           onPageStarted: (String url) {
             if (mounted) {
@@ -93,7 +92,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
       print('🔗 File URL: ${data['file_url']}');
       print('📁 File type: ${data['file_type']}');
 
-      // Show immediate feedback
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -104,16 +102,14 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
         );
       }
 
-      // Save the file
       final savedFile = await FileStorageService.saveFileFromData(
         space: widget.space,
         fileName: data['file_name'] ?? 'gradio_output',
         fileUrl: data['file_url'] ?? '',
-        fileData: data['base64_data'], // Pass base64 data if available
+        fileData: data['base64_data'],
       );
 
       if (savedFile != null) {
-        // Save to database
         final fileId = await SavedFilesDatabase.saveFile(savedFile);
 
         if (mounted && fileId > 0) {
@@ -129,7 +125,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
               action: SnackBarAction(
                 label: 'View',
                 onPressed: () {
-                  // Navigate to file viewer
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => FileViewerScreen(savedFile: savedFile),
@@ -172,7 +167,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
 
   Future<void> _checkForErrors() async {
     try {
-      // Check if page contains common error messages
       final result = await controller.runJavaScriptReturningResult('''
         (function() {
           var body = document.body.innerText.toLowerCase();
@@ -210,7 +204,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
         });
       }
     } catch (e) {
-      // JavaScript execution failed, ignore
     }
   }
 

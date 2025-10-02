@@ -135,7 +135,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
             ),
           ),
 
-          // File content viewer
           Expanded(
             child: _buildFileContent(),
           ),
@@ -376,7 +375,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
           }
 
           try {
-            // Try to format JSON
             final jsonData = snapshot.data ?? '';
             final prettyJson = const JsonEncoder.withIndent('  ').convert(
               json.decode(jsonData),
@@ -393,7 +391,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
               ),
             );
           } catch (e) {
-            // If JSON parsing fails, show raw content
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: SelectableText(
@@ -629,22 +626,20 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Close dialog
+              Navigator.pop(context);
 
               setState(() {
                 _isLoading = true;
               });
 
-              // Delete from database
               if (widget.savedFile.id != null) {
                 await SavedFilesDatabase.deleteFile(widget.savedFile.id!);
               }
 
-              // Delete physical file
               await FileStorageService.deleteFile(widget.savedFile);
 
               if (mounted) {
-                Navigator.pop(context); // Go back to previous screen
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Deleted ${widget.savedFile.originalFileName}'),

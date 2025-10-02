@@ -47,12 +47,10 @@ class _OutputsScreenState extends State<OutputsScreen> {
   List<SavedGeneratedFile> get _filteredFiles {
     var filtered = _savedFiles;
 
-    // Filter by file type
     if (_selectedFileType != 'all') {
       filtered = filtered.where((file) => file.fileType == _selectedFileType).toList();
     }
 
-    // Filter by search query
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((file) {
         return file.spaceName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -110,7 +108,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
           if (_savedFiles.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -132,7 +129,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
               ),
             ),
 
-          // File type filter chips
           if (_savedFiles.isNotEmpty)
             Container(
               height: 50,
@@ -163,7 +159,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
               ),
             ),
 
-          // Content
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -284,7 +279,7 @@ class _OutputsScreenState extends State<OutputsScreen> {
             MaterialPageRoute(
               builder: (context) => FileViewerScreen(savedFile: file),
             ),
-          ).then((_) => _loadSavedFiles()); // Refresh when returning
+          ).then((_) => _loadSavedFiles());
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -292,7 +287,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // File preview/icon
               Expanded(
                 flex: 3,
                 child: Container(
@@ -307,14 +301,12 @@ class _OutputsScreenState extends State<OutputsScreen> {
 
               const SizedBox(height: 8),
 
-              // File info
               Expanded(
                 flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // File name
                     Flexible(
                       child: Text(
                         file.originalFileName,
@@ -329,7 +321,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
 
                     const SizedBox(height: 2),
 
-                    // Space name
                     Flexible(
                       child: Text(
                         file.spaceName,
@@ -344,7 +335,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
 
                     const SizedBox(height: 2),
 
-                    // File type and size
                     Flexible(
                       child: Row(
                         children: [
@@ -379,7 +369,6 @@ class _OutputsScreenState extends State<OutputsScreen> {
 
                     const SizedBox(height: 1),
 
-                    // Timestamp
                     Flexible(
                       child: Text(
                         file.formattedTimestamp,
@@ -508,10 +497,8 @@ class _OutputsScreenState extends State<OutputsScreen> {
             onPressed: () async {
               Navigator.of(context).pop();
 
-              // Clear database
               await SavedFilesDatabase.clearAllFiles();
 
-              // Show success message
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(

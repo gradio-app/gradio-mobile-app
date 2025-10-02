@@ -50,32 +50,27 @@ class HFOAuthService {
     ),
   );
 
-  // Storage keys
   static const String _accessTokenKey = 'hf_access_token';
   static const String _refreshTokenKey = 'hf_refresh_token';
   static const String _userDataKey = 'hf_user_data';
 
-  /// Generate a code verifier for PKCE
   static String _generateCodeVerifier() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
     final random = Random.secure();
     return List.generate(128, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
-  /// Generate code challenge from verifier
   static String _generateCodeChallenge(String verifier) {
     final bytes = utf8.encode(verifier);
     final digest = sha256.convert(bytes);
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 
-  /// Check if user is currently authenticated
   static Future<bool> isAuthenticated() async {
     final accessToken = await _secureStorage.read(key: _accessTokenKey);
     return accessToken != null && accessToken.isNotEmpty;
   }
 
-  /// Get cached user data if available
   static Future<HuggingFaceUser?> getCachedUser() async {
     try {
       final userDataJson = await _secureStorage.read(key: _userDataKey);
@@ -89,10 +84,8 @@ class HFOAuthService {
     return null;
   }
 
-  /// Perform OAuth login
   static Future<HuggingFaceUser?> login() async {
     try {
-      // Use a simpler OAuth flow without PKCE since HuggingFace may not support it
       final AuthorizationTokenRequest request = AuthorizationTokenRequest(
         _clientId,
         _redirectUri,
@@ -111,13 +104,11 @@ class HFOAuthService {
         print('Token expires in: ${result.accessTokenExpirationDateTime}');
         print('Scopes: ${result.scopes}');
 
-        // Store tokens securely
         await _secureStorage.write(key: _accessTokenKey, value: result.accessToken!);
         if (result.refreshToken != null) {
           await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken!);
         }
 
-        // Fetch and cache user information
         final user = await _fetchUserInfo(result.accessToken!);
         if (user != null) {
           await _cacheUserData(user);
@@ -133,12 +124,10 @@ class HFOAuthService {
     return null;
   }
 
-  /// Fetch user information from HuggingFace API
   static Future<HuggingFaceUser?> _fetchUserInfo(String accessToken) async {
     try {
       print('Access token received: ${accessToken.substring(0, 20)}...');
 
-      // Try the OpenID Connect userinfo endpoint first
       var response = await http.get(
         Uri.parse('https://huggingface.co/oauth/userinfo'),
         headers: {
@@ -155,7 +144,6 @@ class HFOAuthService {
         return HuggingFaceUser.fromJson(userData);
       }
 
-      // Fallback to whoami endpoint
       response = await http.get(
         Uri.parse(_userInfoEndpoint),
         headers: {
@@ -172,7 +160,6 @@ class HFOAuthService {
         return HuggingFaceUser.fromJson(userData);
       }
 
-      // Try with a different authorization header format
       response = await http.get(
         Uri.parse(_userInfoEndpoint),
         headers: {
@@ -197,7 +184,6 @@ class HFOAuthService {
     }
   }
 
-  /// Cache user data securely
   static Future<void> _cacheUserData(HuggingFaceUser user) async {
     final userDataJson = json.encode({
       'name': user.username,
@@ -209,12 +195,10 @@ class HFOAuthService {
     await _secureStorage.write(key: _userDataKey, value: userDataJson);
   }
 
-  /// Get current access token
   static Future<String?> getAccessToken() async {
     return await _secureStorage.read(key: _accessTokenKey);
   }
 
-  /// Refresh access token if possible
   static Future<bool> refreshToken() async {
     try {
       final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
@@ -245,13 +229,10 @@ class HFOAuthService {
     return false;
   }
 
-  /// Get current user (from cache or API)
   static Future<HuggingFaceUser?> getCurrentUser() async {
-    // Try cached user first
     var user = await getCachedUser();
     if (user != null) return user;
 
-    // If no cached user, try to fetch from API
     final accessToken = await getAccessToken();
     if (accessToken != null) {
       try {
@@ -261,7 +242,6 @@ class HFOAuthService {
           return user;
         }
       } catch (e) {
-        // Token might be expired, try to refresh
         final refreshed = await refreshToken();
         if (refreshed) {
           final newAccessToken = await getAccessToken();
@@ -279,12 +259,10 @@ class HFOAuthService {
     return null;
   }
 
-  /// Logout and clear all stored data
   static Future<void> logout() async {
     await _secureStorage.deleteAll();
   }
 
-  /// Validate if the current session is still valid
   static Future<bool> validateSession() async {
     final accessToken = await getAccessToken();
     if (accessToken == null) return false;

@@ -15,7 +15,6 @@ class FileStorageService {
   static late Directory _appDirectory;
   static bool _initialized = false;
 
-  /// Initialize the file storage service
   static Future<void> initialize() async {
     if (_initialized) return;
 
@@ -35,12 +34,11 @@ class FileStorageService {
     }
   }
 
-  /// Save a file from a URL or base64 data
   static Future<SavedGeneratedFile?> saveFileFromData({
     required HuggingFaceSpace space,
     required String fileName,
     required String fileUrl,
-    String? fileData, // base64 data if URL is data URL
+    String? fileData,
     String? description,
     Map<String, dynamic>? metadata,
   }) async {
@@ -49,12 +47,10 @@ class FileStorageService {
     try {
       print('💾 Saving file: $fileName from: ${fileUrl.substring(0, 50)}...');
 
-      // Determine file type and MIME type
       final mimeType = lookupMimeType(fileName) ?? 'application/octet-stream';
       final fileExtension = path.extension(fileName).toLowerCase();
       final fileType = _getFileTypeFromMime(mimeType);
 
-      // Generate unique filename with space name + hash
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = Random();
       final hashInput = '$timestamp${random.nextInt(999999)}';
@@ -72,7 +68,6 @@ class FileStorageService {
 
       final uniqueFileName = '${cleanSpaceName}_${hash}$extension';
 
-      // Create space-specific subdirectory
       final spaceFolder = _getSpaceFolder(space.id);
       await spaceFolder.create(recursive: true);
 
@@ -83,22 +78,18 @@ class FileStorageService {
       int fileSizeBytes;
 
       if (fileData != null) {
-        // Handle base64 data directly (prioritize this over URL)
         print('📊 Processing base64 data directly...');
         if (fileData.startsWith('data:')) {
-          // It's a data URL, extract the base64 part
           final dataUrlParts = fileData.split(',');
           if (dataUrlParts.length != 2) {
             throw Exception('Invalid data URL format');
           }
           fileBytes = base64Decode(dataUrlParts[1]);
         } else {
-          // It's raw base64 data
           fileBytes = base64Decode(fileData);
         }
         fileSizeBytes = fileBytes.length;
       } else if (fileUrl.startsWith('data:')) {
-        // Handle data URL (base64 encoded)
         print('📊 Processing data URL...');
         final dataUrlParts = fileUrl.split(',');
         if (dataUrlParts.length != 2) {
@@ -108,7 +99,6 @@ class FileStorageService {
         fileBytes = base64Decode(dataUrlParts[1]);
         fileSizeBytes = fileBytes.length;
       } else {
-        // Handle regular URL - download the file
         print('🌐 Downloading file from URL...');
         final dio = Dio();
 
@@ -125,11 +115,9 @@ class FileStorageService {
         fileSizeBytes = fileBytes.length;
       }
 
-      // Write file to local storage
       await file.writeAsBytes(fileBytes);
       print('✅ File saved locally: ${file.path} (${_formatFileSize(fileSizeBytes)})');
 
-      // Create SavedGeneratedFile object
       final savedFile = SavedGeneratedFile(
         spaceId: space.id,
         spaceName: space.name,
@@ -151,7 +139,6 @@ class FileStorageService {
     }
   }
 
-  /// Save file from raw bytes
   static Future<SavedGeneratedFile?> saveFileFromBytes({
     required HuggingFaceSpace space,
     required String fileName,
@@ -167,7 +154,6 @@ class FileStorageService {
       final mimeType = lookupMimeType(fileName) ?? 'application/octet-stream';
       final fileType = _getFileTypeFromMime(mimeType);
 
-      // Generate unique filename with space name + hash
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = Random();
       final hashInput = '$timestamp${random.nextInt(999999)}';
@@ -215,7 +201,6 @@ class FileStorageService {
     }
   }
 
-  /// Delete a saved file
   static Future<bool> deleteFile(SavedGeneratedFile savedFile) async {
     try {
       final file = File(savedFile.localFilePath);
@@ -231,7 +216,6 @@ class FileStorageService {
     }
   }
 
-  /// Get total storage used
   static Future<int> getTotalStorageUsed() async {
     await initialize();
 
@@ -252,7 +236,6 @@ class FileStorageService {
     }
   }
 
-  /// Get storage used by a specific space
   static Future<int> getSpaceStorageUsed(String spaceId) async {
     await initialize();
 
@@ -273,7 +256,6 @@ class FileStorageService {
     }
   }
 
-  /// Clean up orphaned files (files not in database)
   static Future<int> cleanupOrphanedFiles(List<String> validFilePaths) async {
     await initialize();
 
@@ -297,13 +279,11 @@ class FileStorageService {
     }
   }
 
-  /// Get the space-specific folder
   static Directory _getSpaceFolder(String spaceId) {
     final safeFolderName = spaceId.replaceAll('/', '_').replaceAll(' ', '_');
     return Directory(path.join(_appDirectory.path, _savedFilesFolder, safeFolderName));
   }
 
-  /// Determine file type from MIME type
   static String _getFileTypeFromMime(String mimeType) {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('audio/')) return 'audio';
@@ -317,7 +297,6 @@ class FileStorageService {
     return 'file';
   }
 
-  /// Format file size for display
   static String _formatFileSize(int bytes) {
     if (bytes < 1024) {
       return '$bytes B';
@@ -330,7 +309,6 @@ class FileStorageService {
     }
   }
 
-  /// Get formatted total storage info
   static Future<String> getStorageInfo() async {
     final totalBytes = await getTotalStorageUsed();
     return 'Total storage used: ${_formatFileSize(totalBytes)}';

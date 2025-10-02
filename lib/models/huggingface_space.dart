@@ -11,6 +11,11 @@ class HuggingFaceSpace {
   final String? status;
   final DateTime? lastModified;
   final List<String> tags;
+  final DateTime? likedAt;
+  final String? aiCategory;
+  final String? aiShortDescription;
+  final double? semanticRelevancyScore;
+  final double? trendingScore;
 
   HuggingFaceSpace({
     required this.id,
@@ -25,6 +30,11 @@ class HuggingFaceSpace {
     this.status,
     this.lastModified,
     this.tags = const [],
+    this.likedAt,
+    this.aiCategory,
+    this.aiShortDescription,
+    this.semanticRelevancyScore,
+    this.trendingScore,
   });
 
   factory HuggingFaceSpace.fromJson(Map<String, dynamic> json) {
@@ -32,13 +42,11 @@ class HuggingFaceSpace {
     final parts = id.split('/');
     final author = parts.isNotEmpty ? parts[0] : '';
     final name = parts.length > 1 ? parts[1] : id;
-    
-    // Convert to hf.space subdomain format: author-name.hf.space
+
     final subdomain = id.replaceAll('/', '-').toLowerCase();
     final url = 'https://$subdomain.hf.space';
     final thumbnailUrl = 'https://huggingface.co/spaces/$id/thumbnail.png';
-    
-    // Parse last modified date
+
     DateTime? lastModified;
     if (json['lastModified'] != null) {
       try {
@@ -83,10 +91,42 @@ class HuggingFaceSpace {
       sdk: json['sdk'],
       url: url,
       thumbnailUrl: thumbnailUrl,
-      emoji: json['cardData']?['emoji'],
+      emoji: json['cardData']?['emoji'] ?? json['emoji'],
       status: runtimeStatus,
       lastModified: lastModified,
       tags: List<String>.from(json['tags'] ?? []),
+      likedAt: json['likedAt'] != null ? DateTime.parse(json['likedAt']) : null,
+      aiCategory: json['ai_category'],
+      aiShortDescription: json['ai_short_description'],
+      semanticRelevancyScore: json['semanticRelevancyScore'] != null ? (json['semanticRelevancyScore'] as num).toDouble() : null,
+      trendingScore: json['trendingScore'] != null ? (json['trendingScore'] as num).toDouble() : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'author': author,
+      'likes': likes,
+      'sdk': sdk,
+      'url': url,
+      'thumbnailUrl': thumbnailUrl,
+      'cardData': {
+        'emoji': emoji,
+        'title': description,
+      },
+      'runtime': status != null ? {
+        'stage': status,
+      } : null,
+      'lastModified': lastModified?.toIso8601String(),
+      'tags': tags,
+      'likedAt': likedAt?.toIso8601String(),
+      'ai_category': aiCategory,
+      'ai_short_description': aiShortDescription,
+      'semanticRelevancyScore': semanticRelevancyScore,
+      'trendingScore': trendingScore,
+    };
   }
 }

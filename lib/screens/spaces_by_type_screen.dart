@@ -15,6 +15,7 @@ class SpacesByTypeScreen extends StatefulWidget {
 
 class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
   List<HuggingFaceSpace> spaces = [];
+  List<HuggingFaceSpace> allSpaces = [];
   bool isLoading = true;
   bool isLoadingMore = false;
   String? error;
@@ -35,7 +36,7 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
 
   void _scrollListener() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!isLoadingMore && !isLoading && spaces.length >= 20) {
+      if (!isLoadingMore && !isLoading && spaces.length < allSpaces.length) {
         loadMoreSpaces();
       }
     }
@@ -52,7 +53,8 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
       final typeSpaces = await HuggingFaceService.getSpacesByType(widget.spaceType.id);
       if (mounted) {
         setState(() {
-          spaces = typeSpaces.take(20).toList(); // Initially load 20 spaces
+          allSpaces = typeSpaces;
+          spaces = typeSpaces.take(50).toList(); // Initially load 20 spaces
           isLoading = false;
         });
       }
@@ -67,20 +69,19 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
   }
 
   Future<void> loadMoreSpaces() async {
-    if (isLoadingMore) return;
+    if (isLoadingMore || spaces.length >= allSpaces.length) return;
 
     try {
       setState(() {
         isLoadingMore = true;
       });
 
-      final typeSpaces = await HuggingFaceService.getSpacesByType(widget.spaceType.id);
+      await Future.delayed(const Duration(milliseconds: 300));
 
       if (mounted) {
         setState(() {
-          // Add the next batch of spaces
           final currentLength = spaces.length;
-          final additionalSpaces = typeSpaces.skip(currentLength).take(20).toList();
+          final additionalSpaces = allSpaces.skip(currentLength).take(50).toList();
           spaces.addAll(additionalSpaces);
           isLoadingMore = false;
         });
@@ -192,7 +193,6 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
                       itemCount: spaces.length + (isLoadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index >= spaces.length) {
-                          // Loading indicator at the bottom
                           return const Padding(
                             padding: EdgeInsets.all(16.0),
                             child: Center(child: CircularProgressIndicator()),

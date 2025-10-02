@@ -14,29 +14,59 @@ class BookmarksScreen extends StatefulWidget {
 class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderStateMixin {
   bool isLoggedIn = false;
   HuggingFaceUser? currentUser;
-  List<HuggingFaceSpace> likedSpaces = [];
+  List<HuggingFaceSpace> allLikedSpaces = [];
+  List<HuggingFaceSpace> displayedLikedSpaces = [];
   List<HuggingFaceSpace> createdSpaces = [];
   bool isLoading = false;
+  bool isLoadingMoreLiked = false;
   String? error;
 
-  // Tab controller for Liked vs Created Spaces
   late TabController _tabController;
+  final ScrollController _likedScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChange);
+    _likedScrollController.addListener(_onLikedScroll);
     _checkAuthentication();
   }
 
   void _onTabChange() {
-    // Tab change listener - could be used for analytics or specific tab logic if needed
+  }
+
+  void _onLikedScroll() {
+    if (_likedScrollController.position.pixels >= _likedScrollController.position.maxScrollExtent - 200) {
+      if (!isLoadingMoreLiked && displayedLikedSpaces.length < allLikedSpaces.length) {
+        _loadMoreLikedSpaces();
+      }
+    }
+  }
+
+  void _loadMoreLikedSpaces() {
+    if (isLoadingMoreLiked || displayedLikedSpaces.length >= allLikedSpaces.length) return;
+
+    setState(() {
+      isLoadingMoreLiked = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          final currentLength = displayedLikedSpaces.length;
+          final additionalSpaces = allLikedSpaces.skip(currentLength).take(50).toList();
+          displayedLikedSpaces.addAll(additionalSpaces);
+          isLoadingMoreLiked = false;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _likedScrollController.dispose();
     super.dispose();
   }
 
@@ -73,7 +103,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   @override
   void didUpdateWidget(BookmarksScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Refresh data when widget is updated (e.g., when navigating back to this screen)
     if (isLoggedIn && currentUser != null) {
       _refreshUserSpaces();
     }
@@ -90,7 +119,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     try {
       final accessToken = await HFOAuthService.getAccessToken();
 
-      // Fetch both liked and created spaces in parallel
       final futures = await Future.wait([
         HuggingFaceService.getUserLikedSpaces(username, accessToken: accessToken),
         HuggingFaceService.getUserCreatedSpaces(username),
@@ -98,13 +126,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
 
       if (mounted) {
         setState(() {
-          likedSpaces = futures[0];
+          allLikedSpaces = futures[0];
+          displayedLikedSpaces = futures[0].take(50).toList();
           createdSpaces = futures[1];
           isLoading = false;
         });
       }
 
-      // Only show success message on first load (when loading indicator was shown)
       if (mounted && showLoadingIndicator) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -192,7 +220,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     setState(() {
       isLoggedIn = false;
       currentUser = null;
-      likedSpaces.clear();
+      allLikedSpaces.clear();
+      displayedLikedSpaces.clear();
       createdSpaces.clear();
       error = null;
     });
@@ -368,7 +397,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       );
     }
 
-    if (likedSpaces.isEmpty) {
+    if (allLikedSpaces.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -406,10 +435,17 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     return RefreshIndicator(
       onRefresh: _refreshUserSpaces,
       child: ListView.builder(
+        controller: _likedScrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: likedSpaces.length,
+        itemCount: displayedLikedSpaces.length + (isLoadingMoreLiked ? 1 : 0),
         itemBuilder: (context, index) {
-          return _buildSpaceCard(likedSpaces[index]);
+          if (index >= displayedLikedSpaces.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _buildSpaceCard(displayedLikedSpaces[index]);
         },
       ),
     );

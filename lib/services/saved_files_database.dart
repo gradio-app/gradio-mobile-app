@@ -36,7 +36,6 @@ class SavedFilesDatabase {
           )
         ''');
 
-        // Create indexes for faster queries
         await db.execute('''
           CREATE INDEX idx_space_timestamp ON $_tableName (space_id, timestamp DESC)
         ''');
@@ -52,7 +51,6 @@ class SavedFilesDatabase {
     );
   }
 
-  /// Save a generated file to the database
   static Future<int> saveFile(SavedGeneratedFile file) async {
     try {
       final db = await database;
@@ -65,7 +63,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get all saved files, ordered by timestamp (newest first)
   static Future<List<SavedGeneratedFile>> getAllFiles() async {
     try {
       final db = await database;
@@ -81,7 +78,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get files for a specific space
   static Future<List<SavedGeneratedFile>> getFilesForSpace(String spaceId) async {
     try {
       final db = await database;
@@ -99,7 +95,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get files by type (image, audio, video, document, data)
   static Future<List<SavedGeneratedFile>> getFilesByType(String fileType) async {
     try {
       final db = await database;
@@ -117,7 +112,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Search files by name or description
   static Future<List<SavedGeneratedFile>> searchFiles(String query) async {
     try {
       final db = await database;
@@ -140,7 +134,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get files with pagination
   static Future<List<SavedGeneratedFile>> getFilesWithPagination({
     int offset = 0,
     int limit = 20,
@@ -182,7 +175,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Delete a file from the database
   static Future<bool> deleteFile(int id) async {
     try {
       final db = await database;
@@ -198,7 +190,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Delete all files for a specific space
   static Future<int> deleteFilesForSpace(String spaceId) async {
     try {
       final db = await database;
@@ -215,7 +206,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Clear all saved files
   static Future<bool> clearAllFiles() async {
     try {
       final db = await database;
@@ -228,7 +218,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get count of saved files
   static Future<int> getFilesCount() async {
     try {
       final db = await database;
@@ -240,7 +229,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get count by file type
   static Future<Map<String, int>> getFileCountsByType() async {
     try {
       final db = await database;
@@ -261,7 +249,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get total storage used (sum of all file sizes)
   static Future<int> getTotalStorageUsed() async {
     try {
       final db = await database;
@@ -273,7 +260,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get storage used by space
   static Future<Map<String, int>> getStorageBySpace() async {
     try {
       final db = await database;
@@ -294,7 +280,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get all file paths (for cleanup operations)
   static Future<List<String>> getAllFilePaths() async {
     try {
       final db = await database;
@@ -306,7 +291,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Update file description
   static Future<bool> updateFileDescription(int id, String description) async {
     try {
       final db = await database;
@@ -323,7 +307,6 @@ class SavedFilesDatabase {
     }
   }
 
-  /// Get recent files (last 7 days)
   static Future<List<SavedGeneratedFile>> getRecentFiles({int days = 7}) async {
     try {
       final db = await database;

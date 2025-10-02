@@ -94,7 +94,6 @@ class SavedGeneratedFile {
     );
   }
 
-  /// Get formatted timestamp for display
   String get formattedTimestamp {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
@@ -110,7 +109,6 @@ class SavedGeneratedFile {
     }
   }
 
-  /// Get formatted file size for display
   String get formattedFileSize {
     if (fileSizeBytes < 1024) {
       return '$fileSizeBytes B';
@@ -123,7 +121,6 @@ class SavedGeneratedFile {
     }
   }
 
-  /// Check if the local file still exists
   bool get fileExists {
     try {
       return File(localFilePath).existsSync();
@@ -132,33 +129,28 @@ class SavedGeneratedFile {
     }
   }
 
-  /// Get file extension
   String get fileExtension {
     return fileName.split('.').last.toLowerCase();
   }
 
-  /// Check if file is an image
   bool get isImage {
     final imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
     return imageExtensions.contains(fileExtension) ||
            mimeType.startsWith('image/');
   }
 
-  /// Check if file is audio
   bool get isAudio {
     final audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'];
     return audioExtensions.contains(fileExtension) ||
            mimeType.startsWith('audio/');
   }
 
-  /// Check if file is video
   bool get isVideo {
     final videoExtensions = ['mp4', 'avi', 'mov', 'webm', 'mkv', 'flv'];
     return videoExtensions.contains(fileExtension) ||
            mimeType.startsWith('video/');
   }
 
-  /// Check if file is a document
   bool get isDocument {
     final docExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'md'];
     return docExtensions.contains(fileExtension) ||
@@ -167,7 +159,6 @@ class SavedGeneratedFile {
            mimeType.contains('document');
   }
 
-  /// Check if file is data/code
   bool get isData {
     final dataExtensions = ['json', 'csv', 'xml', 'yml', 'yaml', 'py', 'js', 'html', 'css'];
     return dataExtensions.contains(fileExtension) ||
@@ -176,7 +167,6 @@ class SavedGeneratedFile {
            mimeType.contains('xml');
   }
 
-  /// Get appropriate icon for file type
   String get fileTypeIcon {
     if (isImage) return '🖼️';
     if (isAudio) return '🎵';
@@ -186,7 +176,6 @@ class SavedGeneratedFile {
     return '📁';
   }
 
-  /// Get file type category for display
   String get fileTypeCategory {
     if (isImage) return 'Image';
     if (isAudio) return 'Audio';
