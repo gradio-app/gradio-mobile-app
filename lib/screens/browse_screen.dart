@@ -3,8 +3,10 @@ import '../models/huggingface_space.dart';
 import '../models/space_type.dart';
 import '../services/huggingface_service.dart';
 import '../widgets/space_type_card.dart';
+import '../widgets/space_card.dart';
 import 'gradio_webview_screen.dart';
 import 'spaces_by_type_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class BrowseScreen extends StatefulWidget {
   const BrowseScreen({super.key});
@@ -20,6 +22,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool isSearching = false;
   bool showSpaceTypes = true;
+  String _sortBy = 'likes'; // likes | recent | name
 
   @override
   void initState() {
@@ -47,7 +50,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
       final trendingSpaces = await HuggingFaceService.getTrendingSpaces();
       if (mounted) {
         setState(() {
-          spaces = trendingSpaces;
+          spaces = _applySort(trendingSpaces);
           isLoading = false;
         });
       }
@@ -84,7 +87,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
       final searchResults = await HuggingFaceService.searchSpaces(query);
       if (mounted) {
         setState(() {
-          spaces = searchResults;
+          spaces = _applySort(searchResults);
           isLoading = false;
         });
       }
@@ -96,6 +99,26 @@ class _BrowseScreenState extends State<BrowseScreen> {
         });
       }
     }
+  }
+
+  List<HuggingFaceSpace> _applySort(List<HuggingFaceSpace> list) {
+    final result = List<HuggingFaceSpace>.from(list);
+    switch (_sortBy) {
+      case 'recent':
+        result.sort((a, b) {
+          final aTime = a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime = b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case 'name':
+        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'likes':
+      default:
+        result.sort((a, b) => b.likes.compareTo(a.likes));
+    }
+    return result;
   }
 
   String _formatLastModified(DateTime lastModified) {
@@ -117,54 +140,34 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Container(
-          height: 40,
-          child: TextField(
-            controller: _searchController,
-            onSubmitted: searchSpaces,
-            onChanged: (value) {
-              if (value.isEmpty && mounted) {
-                setState(() {
-                  showSpaceTypes = true;
-                  isSearching = false;
-                  spaces = [];
-                  error = null;
-                });
-              }
-            },
-            decoration: InputDecoration(
-              hintText: 'Search for Gradio spaces...',
-              hintStyle: TextStyle(color: Colors.grey[600]),
-              prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey[600]),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          showSpaceTypes = true;
-                          isSearching = false;
-                          spaces = [];
-                          error = null;
-                        });
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            ),
+        title: Text(
+          'Spaces',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
           ),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            onSelected: (value) {
+              setState(() {
+                _sortBy = value;
+                spaces = _applySort(spaces);
+              });
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'likes', child: Text('Most liked')),
+              PopupMenuItem(value: 'recent', child: Text('Recently updated')),
+              PopupMenuItem(value: 'name', child: Text('Name A–Z')),
+            ],
+          ),
+        ],
       ),
       body: showSpaceTypes
           ? GridView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 1.0,
@@ -217,108 +220,15 @@ class _BrowseScreenState extends State<BrowseScreen> {
                       itemCount: spaces.length,
                       itemBuilder: (context, index) {
                         final space = spaces[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (space.emoji != null) ...[
-                                  Text(
-                                    space.emoji!,
-                                    style: const TextStyle(fontSize: 32),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    space.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      height: 1.1,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'by ${space.author}',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                if (space.description != null)
-                                  Text(
-                                    space.description!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: SizedBox(
-                              width: 95,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.favorite, size: 16, color: Colors.red),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '${space.likes}',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      space.status ?? 'Running',
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  if (space.lastModified != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Text(
-                                        _formatLastModified(space.lastModified!),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey[500],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            isThreeLine: space.description != null,
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SpaceCard(
+                            space: space,
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => GradioWebViewScreen(
-                                    space: space,
-                                  ),
+                                  builder: (context) => GradioWebViewScreen(space: space),
                                 ),
                               );
                             },

@@ -32,7 +32,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.savedFile.originalFileName),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),

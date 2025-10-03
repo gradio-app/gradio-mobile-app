@@ -4,6 +4,7 @@ import '../models/saved_generated_file.dart';
 import '../services/saved_files_database.dart';
 import '../services/file_storage_service.dart';
 import 'file_viewer_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OutputsScreen extends StatefulWidget {
   const OutputsScreen({super.key});
@@ -67,8 +68,14 @@ class _OutputsScreenState extends State<OutputsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved Files'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(
+          'Saved Files',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
