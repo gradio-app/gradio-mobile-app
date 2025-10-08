@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/huggingface_space.dart';
 import '../models/space_type.dart';
 import '../services/huggingface_service.dart';
+import '../services/cache_service.dart';
 import '../widgets/space_type_card.dart';
 import 'gradio_webview_screen.dart';
 import 'spaces_by_type_screen.dart';

@@ -85,7 +85,7 @@ class HuggingFaceSpace {
     return HuggingFaceSpace(
       id: id,
       name: name,
-      description: json['cardData']?['title'] ?? json['description'],
+      description: json['cardData']?['title'] ?? json['title'] ?? json['description'],
       author: author,
       likes: json['likes'] ?? 0,
       sdk: json['sdk'],

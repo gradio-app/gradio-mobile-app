@@ -126,74 +126,27 @@ class HuggingFaceService {
 
       final spaceType = SpaceType.spaceTypes.firstWhere((type) => type.id == spaceTypeId);
 
-      if (spaceType.semanticCategory != null) {
-        final response = await http.get(
-          Uri.parse('$baseUrl/semantic-search?category=${spaceType.semanticCategory}'),
-          headers: {'Accept': 'application/json'},
-        );
+      final response = await http.get(
+        Uri.parse('$baseUrl/semantic-search?category=${spaceType.semanticCategory}'),
+        headers: {'Accept': 'application/json'},
+      );
 
-        if (response.statusCode == 200) {
-          final List<dynamic> data = json.decode(response.body);
-          final spaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final spaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
 
-          final result = spaces.where((space) => space.sdk?.toLowerCase() == 'gradio').toList();
+        final result = spaces.where((space) => space.sdk?.toLowerCase() == 'gradio').toList();
 
-          if (useCache) {
-            await CacheService.saveToCache(
-              'spaces_by_type_$spaceTypeId',
-              result.map((space) => space.toJson()).toList(),
-            );
-          }
-
-          return result;
-        } else {
-          throw Exception('Failed to load spaces: ${response.statusCode}');
+        if (useCache) {
+          await CacheService.saveToCache(
+            'spaces_by_type_$spaceTypeId',
+            result.map((space) => space.toJson()).toList(),
+          );
         }
+
+        return result;
       } else {
-        final primaryTag = spaceType.matchingTags.isNotEmpty ? spaceType.matchingTags.first : '';
-        final filterParam = primaryTag.isNotEmpty ? '&filter=$primaryTag' : '';
-
-        final response = await http.get(
-          Uri.parse('$baseUrl?sort=likes&direction=-1&limit=5000&full=true&filter=gradio$filterParam'),
-          headers: {'Accept': 'application/json'},
-        );
-
-        if (response.statusCode == 200) {
-          final List<dynamic> data = json.decode(response.body);
-          final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
-
-          final now = DateTime.now();
-          final twelveMonthsAgo = now.subtract(const Duration(days: 365));
-
-          final recentSpaces = gradioSpaces.where((space) {
-            if (space.lastModified == null) return true;
-            return space.lastModified!.isAfter(twelveMonthsAgo);
-          }).toList();
-
-          final typedSpaces = recentSpaces.where((space) {
-            final detectedType = SpaceType.getSpaceTypeForTags(
-              space.tags,
-              title: space.name,
-              description: space.description,
-            );
-            return detectedType?.id == spaceTypeId;
-          }).toList();
-
-          typedSpaces.sort((a, b) => b.likes.compareTo(a.likes));
-
-          final result = typedSpaces.take(500).toList();
-
-          if (useCache) {
-            await CacheService.saveToCache(
-              'spaces_by_type_$spaceTypeId',
-              result.map((space) => space.toJson()).toList(),
-            );
-          }
-
-          return result;
-        } else {
-          throw Exception('Failed to load spaces: ${response.statusCode}');
-        }
+        throw Exception('Failed to load spaces: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error fetching spaces by type: $e');
