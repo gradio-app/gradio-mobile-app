@@ -24,8 +24,8 @@ class SpaceTypeCard extends StatelessWidget {
     final color = _getColor();
 
     return Card(
-      elevation: 4,
-      margin: const EdgeInsets.all(8),
+      elevation: 0,
+      margin: const EdgeInsets.fromLTRB(6, 0, 0, 6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -35,16 +35,20 @@ class SpaceTypeCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: color.withOpacity(0.2),
+              width: 1,
+            ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                color.withOpacity(0.1),
-                color.withOpacity(0.05),
+                color.withOpacity(0.22),
+                color.withOpacity(0.08),
               ],
             ),
           ),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(18),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

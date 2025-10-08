@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/huggingface_space.dart';
 import '../models/space_type.dart';
 import '../services/huggingface_service.dart';
 import 'gradio_webview_screen.dart';
+import '../widgets/space_card.dart';
 
 class SpacesByTypeScreen extends StatefulWidget {
   final SpaceType spaceType;
@@ -20,6 +22,7 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
   bool isLoadingMore = false;
   String? error;
   final ScrollController _scrollController = ScrollController();
+  String _sortBy = 'likes';
 
   @override
   void initState() {
@@ -42,6 +45,87 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
     }
   }
 
+  void _showSortDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Sort by',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSortOption(context, 'likes', 'Most liked', Icons.favorite),
+            const SizedBox(height: 8),
+            _buildSortOption(context, 'recent', 'Recently updated', Icons.schedule),
+            const SizedBox(height: 8),
+            _buildSortOption(context, 'name', 'Name A–Z', Icons.sort_by_alpha),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortOption(BuildContext context, String value, String label, IconData icon) {
+    final isSelected = _sortBy == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _sortBy = value;
+          allSpaces = _applySort(allSpaces);
+          spaces = allSpaces.take(spaces.length).toList();
+        });
+        Navigator.pop(context);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.blue : Colors.grey[600],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.sourceSans3(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? Colors.blue : Colors.black87,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check,
+                size: 20,
+                color: Colors.blue,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> loadSpacesByType() async {
     try {
       if (mounted) {
@@ -53,8 +137,8 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
       final typeSpaces = await HuggingFaceService.getSpacesByType(widget.spaceType.id);
       if (mounted) {
         setState(() {
-          allSpaces = typeSpaces;
-          spaces = typeSpaces.take(50).toList(); // Initially load 20 spaces
+          allSpaces = _applySort(typeSpaces);
+          spaces = allSpaces.take(50).toList();
           isLoading = false;
         });
       }
@@ -66,6 +150,26 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
         });
       }
     }
+  }
+
+  List<HuggingFaceSpace> _applySort(List<HuggingFaceSpace> list) {
+    final result = List<HuggingFaceSpace>.from(list);
+    switch (_sortBy) {
+      case 'recent':
+        result.sort((a, b) {
+          final aTime = a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime = b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case 'name':
+        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'likes':
+      default:
+        result.sort((a, b) => b.likes.compareTo(a.likes));
+    }
+    return result;
   }
 
   Future<void> loadMoreSpaces() async {
@@ -124,7 +228,6 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: color.withOpacity(0.1),
         title: Row(
           children: [
             Icon(
@@ -136,13 +239,21 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
             Expanded(
               child: Text(
                 widget.spaceType.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+                style: GoogleFonts.sourceSans3(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
               ),
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () => _showSortDialog(context),
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -200,108 +311,15 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
                         }
 
                         final space = spaces[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (space.emoji != null) ...[
-                                  Text(
-                                    space.emoji!,
-                                    style: const TextStyle(fontSize: 32),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    space.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      height: 1.1,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'by ${space.author}',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                if (space.description != null)
-                                  Text(
-                                    space.description!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            trailing: SizedBox(
-                              width: 95,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.favorite, size: 16, color: Colors.red),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '${space.likes}',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      space.status ?? 'Running',
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  if (space.lastModified != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Text(
-                                        _formatLastModified(space.lastModified!),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey[500],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            isThreeLine: space.description != null,
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SpaceCard(
+                            space: space,
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => GradioWebViewScreen(
-                                    space: space,
-                                  ),
+                                  builder: (context) => GradioWebViewScreen(space: space),
                                 ),
                               );
                             },

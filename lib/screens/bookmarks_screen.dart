@@ -3,6 +3,8 @@ import '../models/huggingface_space.dart';
 import '../services/huggingface_service.dart';
 import '../services/hf_oauth_service.dart';
 import 'gradio_webview_screen.dart';
+import '../widgets/space_card.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
@@ -21,19 +23,15 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   bool isLoadingMoreLiked = false;
   String? error;
 
-  late TabController _tabController;
   final ScrollController _likedScrollController = ScrollController();
+  String _sortBy = 'likes';
+  String _currentFilter = 'liked';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChange);
     _likedScrollController.addListener(_onLikedScroll);
     _checkAuthentication();
-  }
-
-  void _onTabChange() {
   }
 
   void _onLikedScroll() {
@@ -65,7 +63,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
 
   @override
   void dispose() {
-    _tabController.dispose();
     _likedScrollController.dispose();
     super.dispose();
   }
@@ -126,9 +123,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
 
       if (mounted) {
         setState(() {
-          allLikedSpaces = futures[0];
-          displayedLikedSpaces = futures[0].take(50).toList();
-          createdSpaces = futures[1];
+          allLikedSpaces = _applySort(futures[0]);
+          displayedLikedSpaces = allLikedSpaces.take(50).toList();
+          createdSpaces = _applySort(futures[1]);
           isLoading = false;
         });
       }
@@ -160,9 +157,216 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     }
   }
 
+  List<HuggingFaceSpace> _applySort(List<HuggingFaceSpace> list) {
+    final result = List<HuggingFaceSpace>.from(list);
+    switch (_sortBy) {
+      case 'liked':
+        result.sort((a, b) {
+          final aTime = a.likedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime = b.likedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case 'recent':
+        result.sort((a, b) {
+          final aTime = a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime = b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case 'name':
+        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case 'likes':
+      default:
+        result.sort((a, b) => b.likes.compareTo(a.likes));
+    }
+    return result;
+  }
+
   Future<void> _refreshUserSpaces() async {
     if (currentUser != null) {
       await _fetchUserSpaces(currentUser!.username, showLoadingIndicator: false);
+    }
+  }
+
+  void _showSortDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Sort by',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSortOption(context, 'liked', 'Most recent likes', Icons.favorite),
+            const SizedBox(height: 8),
+            _buildSortOption(context, 'likes', 'Most liked', Icons.favorite_border),
+            const SizedBox(height: 8),
+            _buildSortOption(context, 'recent', 'Recently updated', Icons.schedule),
+            const SizedBox(height: 8),
+            _buildSortOption(context, 'name', 'Name A–Z', Icons.sort_by_alpha),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortOption(BuildContext context, String value, String label, IconData icon) {
+    final isSelected = _sortBy == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _sortBy = value;
+          allLikedSpaces = _applySort(allLikedSpaces);
+          createdSpaces = _applySort(createdSpaces);
+          displayedLikedSpaces = allLikedSpaces.take(displayedLikedSpaces.length).toList();
+        });
+        Navigator.pop(context);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.blue : Colors.grey[600],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.sourceSans3(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? Colors.blue : Colors.black87,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check,
+                size: 20,
+                color: Colors.blue,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Filter by',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFilterOption(context, 'all', 'All Spaces', Icons.apps),
+            const SizedBox(height: 8),
+            _buildFilterOption(context, 'liked', 'Liked Only', Icons.favorite),
+            const SizedBox(height: 8),
+            _buildFilterOption(context, 'created', 'Created Only', Icons.person),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(BuildContext context, String value, String label, IconData icon) {
+    final isSelected = _currentFilter == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentFilter = value;
+          _updateDisplayedSpaces();
+        });
+        Navigator.pop(context);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.blue : Colors.grey[600],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.sourceSans3(
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? Colors.blue : Colors.black87,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check,
+                size: 20,
+                color: Colors.blue,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateDisplayedSpaces() {
+    switch (_currentFilter) {
+      case 'liked':
+        displayedLikedSpaces = allLikedSpaces.take(displayedLikedSpaces.length).toList();
+        break;
+      case 'created':
+        displayedLikedSpaces = createdSpaces.take(displayedLikedSpaces.length).toList();
+        break;
+      case 'all':
+      default:
+        final allSpaces = [...allLikedSpaces, ...createdSpaces];
+        displayedLikedSpaces = allSpaces.take(displayedLikedSpaces.length).toList();
+        break;
     }
   }
 
@@ -251,109 +455,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Widget _buildSpaceCard(HuggingFaceSpace space) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (space.emoji != null) ...[
-              Text(
-                space.emoji!,
-                style: const TextStyle(fontSize: 32),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Expanded(
-              child: Text(
-                space.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  height: 1.1,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'by ${space.author}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            if (space.description != null)
-              Text(
-                space.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 15,
-                ),
-              ),
-          ],
-        ),
-        trailing: SizedBox(
-          width: 95,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.favorite, size: 16, color: Colors.red),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${space.likes}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  space.status ?? 'Running',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (space.lastModified != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: Text(
-                    _formatLastModified(space.lastModified!),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[500],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        isThreeLine: space.description != null,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SpaceCard(
+        space: space,
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => GradioWebViewScreen(
-                space: space,
-              ),
-            ),
+            MaterialPageRoute(builder: (context) => GradioWebViewScreen(space: space)),
           );
         },
       ),
@@ -383,13 +492,39 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: isLoading ? null : _signInWithOAuth,
-              icon: const Icon(Icons.login),
-              label: const Text('Sign in with Hugging Face'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle: const TextStyle(fontSize: 16),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : _signInWithOAuth,
+                icon: const Text('🤗', style: TextStyle(fontSize: 18)),
+                label: Text(
+                  'Sign in with Hugging Face',
+                  style: GoogleFonts.sourceSans3(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  shadowColor: Colors.transparent,
+                ),
               ),
             ),
           ],
@@ -474,13 +609,39 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: isLoading ? null : _signInWithOAuth,
-              icon: const Icon(Icons.login),
-              label: const Text('Sign in with Hugging Face'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle: const TextStyle(fontSize: 16),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : _signInWithOAuth,
+                icon: const Text('🤗', style: TextStyle(fontSize: 18)),
+                label: Text(
+                  'Sign in with Hugging Face',
+                  style: GoogleFonts.sourceSans3(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  shadowColor: Colors.transparent,
+                ),
               ),
             ),
           ],
@@ -530,27 +691,24 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Favorites'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(
+          'Favorites',
+          style: GoogleFonts.sourceSans3(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
         actions: isLoggedIn ? [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
           ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => _showFilterDialog(context),
+          ),
         ] : null,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.favorite),
-              text: 'Liked',
-            ),
-            Tab(
-              icon: Icon(Icons.person),
-              text: 'Created',
-            ),
-          ],
-        ),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -574,13 +732,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                     ],
                   ),
                 )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildLikedSpacesTab(),
-                    _buildCreatedSpacesTab(),
-                  ],
-                ),
+              : _buildLikedSpacesTab(),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/browse_screen.dart';
 import 'screens/bookmarks_screen.dart';
 import 'screens/outputs_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Gradio Mobile',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+        useMaterial3: true,
+        textTheme: GoogleFonts.sourceSans3TextTheme(),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.transparent,
+          indicatorColor: Colors.black.withOpacity(0.06),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        ),
       ),
       home: const MainScreen(),
     );
@@ -42,27 +50,45 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Browse',
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Material(
+            elevation: 0,
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.transparent,
+            shadowColor: Colors.transparent,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: NavigationBar(
+                height: 40,
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.explore_outlined),
+                    selectedIcon: Icon(Icons.explore),
+                    label: 'Browse',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.favorite_border),
+                    selectedIcon: Icon(Icons.favorite),
+                    label: 'Favorites',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.outbox_outlined),
+                    selectedIcon: Icon(Icons.outbox),
+                    label: 'Outputs',
+                  ),
+                ],
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.output),
-            label: 'Outputs',
-          ),
-        ],
+        ),
       ),
     );
   }
