@@ -148,22 +148,6 @@ class _BrowseScreenState extends State<BrowseScreen> {
             color: Colors.black87,
           ),
         ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            onSelected: (value) {
-              setState(() {
-                _sortBy = value;
-                spaces = _applySort(spaces);
-              });
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'likes', child: Text('Most liked')),
-              PopupMenuItem(value: 'recent', child: Text('Recently updated')),
-              PopupMenuItem(value: 'name', child: Text('Name A–Z')),
-            ],
-          ),
-        ],
       ),
       body: showSpaceTypes
           ? GridView.builder(
