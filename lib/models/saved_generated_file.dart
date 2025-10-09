@@ -5,6 +5,7 @@ class SavedGeneratedFile {
   final int? id;
   final String spaceId;
   final String spaceName;
+  final String spaceUrl;
   final String fileName;
   final String originalFileName;
   final String fileType;
@@ -19,6 +20,7 @@ class SavedGeneratedFile {
     this.id,
     required this.spaceId,
     required this.spaceName,
+    required this.spaceUrl,
     required this.fileName,
     required this.originalFileName,
     required this.fileType,
@@ -35,6 +37,7 @@ class SavedGeneratedFile {
       'id': id,
       'space_id': spaceId,
       'space_name': spaceName,
+      'space_url': spaceUrl,
       'file_name': fileName,
       'original_file_name': originalFileName,
       'file_type': fileType,
@@ -52,6 +55,7 @@ class SavedGeneratedFile {
       id: map['id']?.toInt(),
       spaceId: map['space_id'] ?? '',
       spaceName: map['space_name'] ?? '',
+      spaceUrl: map['space_url'] ?? '',
       fileName: map['file_name'] ?? '',
       originalFileName: map['original_file_name'] ?? '',
       fileType: map['file_type'] ?? '',
@@ -68,6 +72,7 @@ class SavedGeneratedFile {
     int? id,
     String? spaceId,
     String? spaceName,
+    String? spaceUrl,
     String? fileName,
     String? originalFileName,
     String? fileType,
@@ -82,6 +87,7 @@ class SavedGeneratedFile {
       id: id ?? this.id,
       spaceId: spaceId ?? this.spaceId,
       spaceName: spaceName ?? this.spaceName,
+      spaceUrl: spaceUrl ?? this.spaceUrl,
       fileName: fileName ?? this.fileName,
       originalFileName: originalFileName ?? this.originalFileName,
       fileType: fileType ?? this.fileType,

@@ -217,7 +217,6 @@ class HuggingFaceService {
     try {
       print('Getting PUBLIC liked spaces for user: $username');
 
-      // Try to get public likes without authentication first
       final response = await http.get(
         Uri.parse('https://huggingface.co/api/users/$username/likes'),
         headers: {'Accept': 'application/json'},

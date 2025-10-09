@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../models/saved_generated_file.dart';
+import '../models/huggingface_space.dart';
 import '../services/saved_files_database.dart';
 import '../services/file_storage_service.dart';
 import 'file_viewer_screen.dart';
+import 'gradio_webview_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class OutputsScreen extends StatefulWidget {
@@ -329,14 +331,34 @@ class _OutputsScreenState extends State<OutputsScreen> {
                     const SizedBox(height: 2),
 
                     Flexible(
-                      child: Text(
-                        file.spaceName,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
+                      child: GestureDetector(
+                        onTap: () {
+                          if (file.spaceUrl.isNotEmpty) {
+                            final space = HuggingFaceSpace(
+                              id: file.spaceId,
+                              name: file.spaceName,
+                              author: file.spaceId.split('/').first,
+                              likes: 0,
+                              url: file.spaceUrl,
+                              thumbnailUrl: '',
+                            );
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => GradioWebViewScreen(space: space),
+                              ),
+                            );
+                          }
+                        },
+                        child: Text(
+                          file.spaceName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: file.spaceUrl.isNotEmpty ? Colors.blue[700] : Colors.grey[600],
+                            decoration: file.spaceUrl.isNotEmpty ? TextDecoration.underline : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
 

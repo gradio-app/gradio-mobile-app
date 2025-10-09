@@ -22,6 +22,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   bool isLoading = false;
   bool isLoadingMoreLiked = false;
   String? error;
+  bool _hasShownWelcomeBanner = false;
 
   final ScrollController _likedScrollController = ScrollController();
   String _sortBy = 'likes';
@@ -83,7 +84,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             currentUser = user;
             isLoggedIn = true;
           });
-          await _fetchUserSpaces(user.username);
+          await _fetchUserSpaces(user.username, showLoadingIndicator: false);
         }
       }
     } catch (e) {
@@ -94,14 +95,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
           isLoading = false;
         });
       }
-    }
-  }
-
-  @override
-  void didUpdateWidget(BookmarksScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (isLoggedIn && currentUser != null) {
-      _refreshUserSpaces();
     }
   }
 
@@ -130,7 +123,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         });
       }
 
-      if (mounted && showLoadingIndicator) {
+      if (mounted && showLoadingIndicator && !_hasShownWelcomeBanner) {
+        _hasShownWelcomeBanner = true;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Found ${futures[0].length} liked and ${futures[1].length} created spaces!'),
@@ -398,15 +392,31 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         }
       }
     } catch (e) {
+      String errorMessage = 'Unable to sign in. Please try again.';
+
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('cancel')) {
+        errorMessage = 'Sign in was cancelled.';
+      } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+        errorMessage = 'Network error. Check your connection.';
+      } else if (errorStr.contains('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      }
+
       if (mounted) {
         setState(() {
-          error = 'Login failed: ${e.toString()}';
+          error = errorMessage;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login failed: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _signInWithOAuth,
+            ),
           ),
         );
       }
@@ -428,6 +438,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       displayedLikedSpaces.clear();
       createdSpaces.clear();
       error = null;
+      _hasShownWelcomeBanner = false;
     });
 
     if (mounted) {
@@ -556,8 +567,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () {
-                // Open user's profile page in browser
-                // This would require url_launcher
               },
               icon: const Icon(Icons.open_in_browser),
               label: const Text('View on HuggingFace'),

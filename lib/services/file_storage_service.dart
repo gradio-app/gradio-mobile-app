@@ -45,7 +45,7 @@ class FileStorageService {
     await initialize();
 
     try {
-      print('💾 Saving file: $fileName from: ${fileUrl.substring(0, 50)}...');
+      print('💾 Saving file: $fileName from: ${fileUrl.length > 50 ? '${fileUrl.substring(0, 50)}...' : fileUrl}');
 
       final mimeType = lookupMimeType(fileName) ?? 'application/octet-stream';
       final fileExtension = path.extension(fileName).toLowerCase();
@@ -56,13 +56,11 @@ class FileStorageService {
       final hashInput = '$timestamp${random.nextInt(999999)}';
       final hash = sha256.convert(utf8.encode(hashInput)).toString().substring(0, 8);
 
-      // Clean space name for filename
       final cleanSpaceName = space.name
           .replaceAll(RegExp(r'[^\w\-_\.]'), '_')
           .replaceAll(RegExp(r'_+'), '_')
           .toLowerCase();
 
-      // Get file extension
       final extension = path.extension(fileName);
       final baseName = path.basenameWithoutExtension(fileName);
 
@@ -121,6 +119,7 @@ class FileStorageService {
       final savedFile = SavedGeneratedFile(
         spaceId: space.id,
         spaceName: space.name,
+        spaceUrl: space.url,
         fileName: uniqueFileName,
         originalFileName: fileName,
         fileType: fileType,
@@ -159,13 +158,11 @@ class FileStorageService {
       final hashInput = '$timestamp${random.nextInt(999999)}';
       final hash = sha256.convert(utf8.encode(hashInput)).toString().substring(0, 8);
 
-      // Clean space name for filename
       final cleanSpaceName = space.name
           .replaceAll(RegExp(r'[^\w\-_\.]'), '_')
           .replaceAll(RegExp(r'_+'), '_')
           .toLowerCase();
 
-      // Get file extension
       final extension = path.extension(fileName);
       final baseName = path.basenameWithoutExtension(fileName);
 
@@ -182,6 +179,7 @@ class FileStorageService {
       final savedFile = SavedGeneratedFile(
         spaceId: space.id,
         spaceName: space.name,
+        spaceUrl: space.url,
         fileName: uniqueFileName,
         originalFileName: fileName,
         fileType: fileType,

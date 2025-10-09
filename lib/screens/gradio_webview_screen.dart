@@ -48,10 +48,8 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                 isLoading = false;
               });
 
-              // Inject download interceptor script
               _injectDownloadInterceptorScript();
 
-              // Check if the page contains error messages
               _checkForErrors();
             }
           },

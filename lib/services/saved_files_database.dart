@@ -17,13 +17,14 @@ class SavedFilesDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE $_tableName (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             space_id TEXT NOT NULL,
             space_name TEXT NOT NULL,
+            space_url TEXT NOT NULL,
             file_name TEXT NOT NULL,
             original_file_name TEXT NOT NULL,
             file_type TEXT NOT NULL,
@@ -47,6 +48,13 @@ class SavedFilesDatabase {
         await db.execute('''
           CREATE INDEX idx_timestamp ON $_tableName (timestamp DESC)
         ''');
+      },
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            ALTER TABLE $_tableName ADD COLUMN space_url TEXT NOT NULL DEFAULT ''
+          ''');
+        }
       },
     );
   }

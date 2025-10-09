@@ -72,6 +72,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
         isSearching = false;
         spaces = [];
         error = null;
+        _searchController.clear();
       });
       return;
     }
@@ -122,6 +123,62 @@ class _BrowseScreenState extends State<BrowseScreen> {
     return result;
   }
 
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        onSubmitted: (value) {
+          if (value.trim().isNotEmpty) {
+            searchSpaces(value);
+          }
+        },
+        decoration: InputDecoration(
+          hintText: 'Search for spaces...',
+          hintStyle: GoogleFonts.sourceSans3(
+            fontSize: 15,
+            color: Colors.grey[500],
+            fontWeight: FontWeight.w400,
+          ),
+          prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 22),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: Colors.grey[600], size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _searchController.clear();
+                      if (!showSpaceTypes) {
+                        showSpaceTypes = true;
+                        isSearching = false;
+                        spaces = [];
+                        error = null;
+                      }
+                    });
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        ),
+        style: GoogleFonts.sourceSans3(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+
   String _formatLastModified(DateTime lastModified) {
     final now = DateTime.now();
     final difference = now.difference(lastModified);
@@ -150,51 +207,71 @@ class _BrowseScreenState extends State<BrowseScreen> {
           ),
         ),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            onSelected: (value) {
-              setState(() {
-                _sortBy = value;
-                spaces = _applySort(spaces);
-              });
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'likes', child: Text('Most liked')),
-              PopupMenuItem(value: 'recent', child: Text('Recently updated')),
-              PopupMenuItem(value: 'name', child: Text('Name A–Z')),
-            ],
-          ),
+          if (!showSpaceTypes)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.sort),
+              onSelected: (value) {
+                setState(() {
+                  _sortBy = value;
+                  spaces = _applySort(spaces);
+                });
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'likes', child: Text('Most liked')),
+                PopupMenuItem(value: 'recent', child: Text('Recently updated')),
+                PopupMenuItem(value: 'name', child: Text('Name A–Z')),
+              ],
+            ),
         ],
       ),
       body: showSpaceTypes
-          ? GridView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: SpaceType.spaceTypes.length,
-              itemBuilder: (context, index) {
-                final spaceType = SpaceType.spaceTypes[index];
-                return SpaceTypeCard(
-                  spaceType: spaceType,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SpacesByTypeScreen(spaceType: spaceType),
-                      ),
-                    );
-                  },
-                );
-              },
+          ? CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildSearchBar(),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 1.0,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final spaceType = SpaceType.spaceTypes[index];
+                        return SpaceTypeCard(
+                          spaceType: spaceType,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SpacesByTypeScreen(spaceType: spaceType),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      childCount: SpaceType.spaceTypes.length,
+                    ),
+                  ),
+                ),
+              ],
             )
-          : isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : error != null
-                  ? Center(
+          : CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildSearchBar(),
+                ),
+                if (isLoading)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (error != null)
+                  SliverFillRemaining(
+                    child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -215,28 +292,36 @@ class _BrowseScreenState extends State<BrowseScreen> {
                           ),
                         ],
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: spaces.length,
-                      itemBuilder: (context, index) {
-                        final space = spaces[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: SpaceCard(
-                            space: space,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => GradioWebViewScreen(space: space),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
                     ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final space = spaces[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: SpaceCard(
+                              space: space,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => GradioWebViewScreen(space: space),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                        childCount: spaces.length,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }

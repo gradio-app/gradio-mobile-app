@@ -45,6 +45,33 @@ class SpaceCard extends StatelessWidget {
     return null;
   }
 
+  List<Widget> _buildTags(Color base) {
+    final filteredTags = space.tags
+        .where((tag) => !['gradio', 'streamlit', 'docker', 'spaces'].any((exclude) => tag.toLowerCase().contains(exclude)))
+        .where((tag) => !tag.toLowerCase().startsWith('region:'))
+        .take(3)
+        .toList();
+
+    return filteredTags.map((tag) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: base.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: base.withOpacity(0.3), width: 1),
+        ),
+        child: Text(
+          tag,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.black.withOpacity(0.75),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   Widget _buildAuthor(BuildContext context, Color base) {
     final initials = space.author.isNotEmpty ? space.author[0].toUpperCase() : '?';
 
@@ -157,34 +184,20 @@ class SpaceCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.bolt, size: 12, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              space.status ?? 'Running',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _buildTags(base),
                         ),
                       ),
-                      const Spacer(),
-                      if (space.lastModified != null)
+                      if (space.lastModified != null) ...[
+                        const SizedBox(width: 8),
                         Text(
                           _formatLastModified(space.lastModified),
                           style: TextStyle(fontSize: 11, color: Colors.black.withOpacity(0.5)),
                         ),
+                      ],
                     ],
                   ),
                 ],

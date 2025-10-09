@@ -347,20 +347,17 @@ class SpaceType {
   ];
 
   static SpaceType? getSpaceTypeForTags(List<String> tags, {String? title, String? description}) {
-    // Combine all text for broader matching
     final allText = [
       ...tags,
       if (title != null) title,
       if (description != null) description,
     ].join(' ').toLowerCase();
 
-    // Score each space type based on matches
     Map<SpaceType, int> scores = {};
 
     for (final spaceType in spaceTypes) {
       int score = 0;
 
-      // Check tag matches (higher weight)
       for (final tag in tags) {
         for (final matchingTag in spaceType.matchingTags) {
           if (tag.toLowerCase().contains(matchingTag.toLowerCase()) ||
@@ -370,7 +367,6 @@ class SpaceType {
         }
       }
 
-      // Check title and description matches (lower weight)
       for (final matchingTag in spaceType.matchingTags) {
         if (allText.contains(matchingTag.toLowerCase())) {
           score += 1;
@@ -382,7 +378,6 @@ class SpaceType {
       }
     }
 
-    // Return the space type with the highest score
     if (scores.isEmpty) return null;
 
     final sortedEntries = scores.entries.toList()

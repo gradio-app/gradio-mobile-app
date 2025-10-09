@@ -55,8 +55,7 @@ class HuggingFaceSpace {
         lastModified = null;
       }
     }
-    
-    // Parse runtime status from API
+
     String? runtimeStatus;
     if (json['runtime'] != null && json['runtime']['stage'] != null) {
       final stage = json['runtime']['stage'].toString().toLowerCase();

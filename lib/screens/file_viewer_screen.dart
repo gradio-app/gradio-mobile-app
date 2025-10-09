@@ -5,8 +5,10 @@ import 'package:open_filex/open_filex.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../models/saved_generated_file.dart';
+import '../models/huggingface_space.dart';
 import '../services/saved_files_database.dart';
 import '../services/file_storage_service.dart';
+import 'gradio_webview_screen.dart';
 
 class FileViewerScreen extends StatefulWidget {
   final SavedGeneratedFile savedFile;
@@ -70,7 +72,6 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
       ),
       body: Column(
         children: [
-          // File info header
           Card(
             margin: const EdgeInsets.all(16),
             child: Padding(
@@ -103,11 +104,31 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
                                 color: Colors.grey[600],
                               ),
                             ),
-                            Text(
-                              'From ${widget.savedFile.spaceName}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[500],
+                            GestureDetector(
+                              onTap: () {
+                                if (widget.savedFile.spaceUrl.isNotEmpty) {
+                                  final space = HuggingFaceSpace(
+                                    id: widget.savedFile.spaceId,
+                                    name: widget.savedFile.spaceName,
+                                    author: widget.savedFile.spaceId.split('/').first,
+                                    likes: 0,
+                                    url: widget.savedFile.spaceUrl,
+                                    thumbnailUrl: '',
+                                  );
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => GradioWebViewScreen(space: space),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Text(
+                                'From ${widget.savedFile.spaceName}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: widget.savedFile.spaceUrl.isNotEmpty ? Colors.blue[700] : Colors.grey[500],
+                                  decoration: widget.savedFile.spaceUrl.isNotEmpty ? TextDecoration.underline : null,
+                                ),
                               ),
                             ),
                             Text(
