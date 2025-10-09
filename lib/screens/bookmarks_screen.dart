@@ -13,7 +13,8 @@ class BookmarksScreen extends StatefulWidget {
   State<BookmarksScreen> createState() => _BookmarksScreenState();
 }
 
-class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderStateMixin {
+class _BookmarksScreenState extends State<BookmarksScreen>
+    with TickerProviderStateMixin {
   bool isLoggedIn = false;
   HuggingFaceUser? currentUser;
   List<HuggingFaceSpace> allLikedSpaces = [];
@@ -35,15 +36,19 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   void _onLikedScroll() {
-    if (_likedScrollController.position.pixels >= _likedScrollController.position.maxScrollExtent - 200) {
-      if (!isLoadingMoreLiked && displayedLikedSpaces.length < allLikedSpaces.length) {
+    if (_likedScrollController.position.pixels >=
+        _likedScrollController.position.maxScrollExtent - 200) {
+      if (!isLoadingMoreLiked &&
+          displayedLikedSpaces.length < allLikedSpaces.length) {
         _loadMoreLikedSpaces();
       }
     }
   }
 
   void _loadMoreLikedSpaces() {
-    if (isLoadingMoreLiked || displayedLikedSpaces.length >= allLikedSpaces.length) return;
+    if (isLoadingMoreLiked ||
+        displayedLikedSpaces.length >= allLikedSpaces.length)
+      return;
 
     setState(() {
       isLoadingMoreLiked = true;
@@ -53,7 +58,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       if (mounted) {
         setState(() {
           final currentLength = displayedLikedSpaces.length;
-          final additionalSpaces = allLikedSpaces.skip(currentLength).take(50).toList();
+          final additionalSpaces = allLikedSpaces
+              .skip(currentLength)
+              .take(50)
+              .toList();
           displayedLikedSpaces.addAll(additionalSpaces);
           isLoadingMoreLiked = false;
         });
@@ -105,7 +113,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     }
   }
 
-  Future<void> _fetchUserSpaces(String username, {bool showLoadingIndicator = true}) async {
+  Future<void> _fetchUserSpaces(
+    String username, {
+    bool showLoadingIndicator = true,
+  }) async {
     if (showLoadingIndicator && mounted) {
       setState(() {
         isLoading = true;
@@ -117,7 +128,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       final accessToken = await HFOAuthService.getAccessToken();
 
       final futures = await Future.wait([
-        HuggingFaceService.getUserLikedSpaces(username, accessToken: accessToken),
+        HuggingFaceService.getUserLikedSpaces(
+          username,
+          accessToken: accessToken,
+        ),
         HuggingFaceService.getUserCreatedSpaces(username),
       ]);
 
@@ -133,7 +147,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
       if (mounted && showLoadingIndicator) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Found ${futures[0].length} liked and ${futures[1].length} created spaces!'),
+            content: Text(
+              'Found ${futures[0].length} liked and ${futures[1].length} created spaces!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -169,13 +185,17 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         break;
       case 'recent':
         result.sort((a, b) {
-          final aTime = a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bTime = b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final aTime =
+              a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime =
+              b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
           return bTime.compareTo(aTime);
         });
         break;
       case 'name':
-        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        result.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
       case 'likes':
       default:
@@ -186,7 +206,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
 
   Future<void> _refreshUserSpaces() async {
     if (currentUser != null) {
-      await _fetchUserSpaces(currentUser!.username, showLoadingIndicator: false);
+      await _fetchUserSpaces(
+        currentUser!.username,
+        showLoadingIndicator: false,
+      );
     }
   }
 
@@ -194,9 +217,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Sort by',
           style: GoogleFonts.sourceSans3(
@@ -208,11 +229,26 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildSortOption(context, 'liked', 'Most recent likes', Icons.favorite),
+            _buildSortOption(
+              context,
+              'liked',
+              'Most recent likes',
+              Icons.favorite,
+            ),
             const SizedBox(height: 8),
-            _buildSortOption(context, 'likes', 'Most liked', Icons.favorite_border),
+            _buildSortOption(
+              context,
+              'likes',
+              'Most liked',
+              Icons.favorite_border,
+            ),
             const SizedBox(height: 8),
-            _buildSortOption(context, 'recent', 'Recently updated', Icons.schedule),
+            _buildSortOption(
+              context,
+              'recent',
+              'Recently updated',
+              Icons.schedule,
+            ),
             const SizedBox(height: 8),
             _buildSortOption(context, 'name', 'Name A–Z', Icons.sort_by_alpha),
           ],
@@ -221,7 +257,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildSortOption(BuildContext context, String value, String label, IconData icon) {
+  Widget _buildSortOption(
+    BuildContext context,
+    String value,
+    String label,
+    IconData icon,
+  ) {
     final isSelected = _sortBy == value;
     return InkWell(
       onTap: () {
@@ -229,7 +270,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
           _sortBy = value;
           allLikedSpaces = _applySort(allLikedSpaces);
           createdSpaces = _applySort(createdSpaces);
-          displayedLikedSpaces = allLikedSpaces.take(displayedLikedSpaces.length).toList();
+          displayedLikedSpaces = allLikedSpaces
+              .take(displayedLikedSpaces.length)
+              .toList();
         });
         Navigator.pop(context);
       },
@@ -262,12 +305,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                 ),
               ),
             ),
-            if (isSelected)
-              Icon(
-                Icons.check,
-                size: 20,
-                color: Colors.blue,
-              ),
+            if (isSelected) Icon(Icons.check, size: 20, color: Colors.blue),
           ],
         ),
       ),
@@ -278,9 +316,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Filter by',
           style: GoogleFonts.sourceSans3(
@@ -296,14 +332,24 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             const SizedBox(height: 8),
             _buildFilterOption(context, 'liked', 'Liked Only', Icons.favorite),
             const SizedBox(height: 8),
-            _buildFilterOption(context, 'created', 'Created Only', Icons.person),
+            _buildFilterOption(
+              context,
+              'created',
+              'Created Only',
+              Icons.person,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilterOption(BuildContext context, String value, String label, IconData icon) {
+  Widget _buildFilterOption(
+    BuildContext context,
+    String value,
+    String label,
+    IconData icon,
+  ) {
     final isSelected = _currentFilter == value;
     return InkWell(
       onTap: () {
@@ -342,12 +388,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                 ),
               ),
             ),
-            if (isSelected)
-              Icon(
-                Icons.check,
-                size: 20,
-                color: Colors.blue,
-              ),
+            if (isSelected) Icon(Icons.check, size: 20, color: Colors.blue),
           ],
         ),
       ),
@@ -357,15 +398,21 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   void _updateDisplayedSpaces() {
     switch (_currentFilter) {
       case 'liked':
-        displayedLikedSpaces = allLikedSpaces.take(displayedLikedSpaces.length).toList();
+        displayedLikedSpaces = allLikedSpaces
+            .take(displayedLikedSpaces.length)
+            .toList();
         break;
       case 'created':
-        displayedLikedSpaces = createdSpaces.take(displayedLikedSpaces.length).toList();
+        displayedLikedSpaces = createdSpaces
+            .take(displayedLikedSpaces.length)
+            .toList();
         break;
       case 'all':
       default:
         final allSpaces = [...allLikedSpaces, ...createdSpaces];
-        displayedLikedSpaces = allSpaces.take(displayedLikedSpaces.length).toList();
+        displayedLikedSpaces = allSpaces
+            .take(displayedLikedSpaces.length)
+            .toList();
         break;
     }
   }
@@ -396,6 +443,22 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             ),
           );
         }
+      }
+    } on UserCancelledException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                const Text('Login cancelled'),
+              ],
+            ),
+            backgroundColor: Colors.grey[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -431,13 +494,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed out successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Signed out successfully')));
     }
   }
-
-
 
   String _formatLastModified(DateTime lastModified) {
     final now = DateTime.now();
@@ -462,7 +523,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => GradioWebViewScreen(space: space)),
+            MaterialPageRoute(
+              builder: (context) => GradioWebViewScreen(space: space),
+            ),
           );
         },
       ),
@@ -475,11 +538,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.favorite_border,
-              size: 100,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.favorite_border, size: 100, color: Colors.grey[400]),
             const SizedBox(height: 20),
             const Text(
               'Sign in to view your spaces',
@@ -519,7 +578,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                   backgroundColor: Colors.transparent,
                   foregroundColor: Colors.black,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -537,11 +599,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.favorite_border,
-              size: 100,
-              color: Colors.grey,
-            ),
+            const Icon(Icons.favorite_border, size: 100, color: Colors.grey),
             const SizedBox(height: 20),
             const Text(
               'No public liked spaces found',
@@ -592,11 +650,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.person,
-              size: 100,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.person, size: 100, color: Colors.grey[400]),
             const SizedBox(height: 20),
             const Text(
               'Sign in to view your spaces',
@@ -636,7 +690,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
                   backgroundColor: Colors.transparent,
                   foregroundColor: Colors.black,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -654,11 +711,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add_circle_outline,
-              size: 100,
-              color: Colors.grey,
-            ),
+            Icon(Icons.add_circle_outline, size: 100, color: Colors.grey),
             SizedBox(height: 20),
             Text(
               'No Gradio spaces found',
@@ -699,41 +752,112 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             color: Colors.black87,
           ),
         ),
-        actions: isLoggedIn ? [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ] : null,
+        actions: isLoggedIn
+            ? [
+                IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () => _showFilterDialog(context),
+                ),
+              ]
+            : null,
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error, size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Error: $error'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (currentUser != null) {
-                            _fetchUserSpaces(currentUser!.username);
-                          }
-                        },
-                        child: const Text('Retry'),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                    ],
-                  ),
-                )
-              : _buildLikedSpacesTab(),
+                      child: Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red[700],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Login failed',
+                      style: GoogleFonts.sourceSans3(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Unable to connect to Hugging Face',
+                      style: GoogleFonts.sourceSans3(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please check your internet connection and try again',
+                      style: GoogleFonts.sourceSans3(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          error = null;
+                        });
+                        _signInWithOAuth();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: Text(
+                        'Try again',
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          error = null;
+                        });
+                      },
+                      child: Text(
+                        'Go back',
+                        style: GoogleFonts.sourceSans3(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _buildLikedSpacesTab(),
     );
   }
 }
-

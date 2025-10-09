@@ -5,6 +5,14 @@ import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+class UserCancelledException implements Exception {
+  final String message;
+  UserCancelledException([this.message = 'User cancelled the login process']);
+
+  @override
+  String toString() => message;
+}
+
 class HuggingFaceUser {
   final String username;
   final String? email;
@@ -119,6 +127,17 @@ class HFOAuthService {
       }
     } catch (e) {
       print('OAuth login error: $e');
+
+      // Check if the error is due to user cancellation
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('authorize_and_exchange_code_failed') ||
+          errorString.contains('error -3') ||
+          errorString.contains('user_canceled') ||
+          errorString.contains('user canceled') ||
+          errorString.contains('cancelled')) {
+        throw UserCancelledException();
+      }
+
       throw Exception('Login failed: $e');
     }
     return null;
