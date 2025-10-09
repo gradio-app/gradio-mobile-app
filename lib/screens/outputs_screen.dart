@@ -117,7 +117,7 @@ class _OutputsScreenState extends State<OutputsScreen> {
         children: [
           if (_savedFiles.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
                 onChanged: (value) {
                   setState(() {
@@ -126,12 +126,23 @@ class _OutputsScreenState extends State<OutputsScreen> {
                 },
                 decoration: InputDecoration(
                   hintText: 'Search files...',
-                  prefixIcon: const Icon(Icons.search),
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
                   ),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: Colors.grey[50],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ),
@@ -278,8 +289,14 @@ class _OutputsScreenState extends State<OutputsScreen> {
   }
 
   Widget _buildFileCard(SavedGeneratedFile file) {
+    final color = _getFileTypeColor(file.fileType);
+
     return Card(
-      elevation: 2,
+      elevation: 0,
+      margin: const EdgeInsets.fromLTRB(6, 0, 0, 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
@@ -288,8 +305,23 @@ class _OutputsScreenState extends State<OutputsScreen> {
             ),
           ).then((_) => _loadSavedFiles());
         },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: color.withOpacity(0.2),
+              width: 1,
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                color.withOpacity(0.22),
+                color.withOpacity(0.08),
+              ],
+            ),
+          ),
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +331,7 @@ class _OutputsScreenState extends State<OutputsScreen> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: color.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildFilePreview(file),
@@ -349,14 +381,14 @@ class _OutputsScreenState extends State<OutputsScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                               decoration: BoxDecoration(
-                                color: _getFileTypeColor(file.fileType).withOpacity(0.2),
+                                color: color.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 file.fileTypeCategory,
                                 style: TextStyle(
                                   fontSize: 9,
-                                  color: _getFileTypeColor(file.fileType),
+                                  color: color,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
