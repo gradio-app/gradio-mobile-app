@@ -248,6 +248,12 @@ class _SpacesByTypeScreenState extends State<SpacesByTypeScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () => _showSortDialog(context),
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
