@@ -141,6 +141,20 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: !showSpaceTypes
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    showSpaceTypes = true;
+                    isSearching = false;
+                    spaces = [];
+                    error = null;
+                  });
+                },
+              )
+            : null,
         title: Text(
           'Spaces',
           style: GoogleFonts.sourceSans3(
@@ -167,29 +181,93 @@ class _BrowseScreenState extends State<BrowseScreen> {
         ],
       ),
       body: showSpaceTypes
-          ? GridView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: SpaceType.spaceTypes.length,
-              itemBuilder: (context, index) {
-                final spaceType = SpaceType.spaceTypes[index];
-                return SpaceTypeCard(
-                  spaceType: spaceType,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SpacesByTypeScreen(spaceType: spaceType),
+          ? Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: TextField(
+                    controller: _searchController,
+                    onSubmitted: searchSpaces,
+                    decoration: InputDecoration(
+                      hintText: 'Search...',
+                      hintStyle: GoogleFonts.sourceSans3(
+                        color: Colors.grey[400],
+                        fontSize: 16,
                       ),
-                    );
-                  },
-                );
-              },
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: Colors.grey[400],
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  showSpaceTypes = true;
+                                  isSearching = false;
+                                  spaces = [];
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 1.0,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: SpaceType.spaceTypes.length,
+                    itemBuilder: (context, index) {
+                      final spaceType = SpaceType.spaceTypes[index];
+                      return SpaceTypeCard(
+                        spaceType: spaceType,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SpacesByTypeScreen(spaceType: spaceType),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             )
           : isLoading
               ? const Center(child: CircularProgressIndicator())
