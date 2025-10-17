@@ -22,7 +22,7 @@ class HuggingFaceUser {
 
   factory HuggingFaceUser.fromJson(Map<String, dynamic> json) {
     return HuggingFaceUser(
-      username: json['name'] ?? json['username'] ?? json['login'] ?? '',
+      username: json['preferred_username'] ?? json['username'] ?? json['login'] ?? json['name'] ?? '',
       email: json['email'],
       profilePicture: json['picture'] ?? json['avatarUrl'],
       profileUrl: json['profile'],
@@ -104,24 +104,30 @@ class HFOAuthService {
         print('Token expires in: ${result.accessTokenExpirationDateTime}');
         print('Scopes: ${result.scopes}');
 
-        await _secureStorage.write(key: _accessTokenKey, value: result.accessToken!);
-        if (result.refreshToken != null) {
-          await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken!);
-        }
-
+        // Validate user info BEFORE saving credentials
         final user = await _fetchUserInfo(result.accessToken!);
         if (user != null) {
+          // Only save credentials after successful validation
+          await _secureStorage.write(key: _accessTokenKey, value: result.accessToken!);
+          if (result.refreshToken != null) {
+            await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken!);
+          }
           await _cacheUserData(user);
           return user;
+        } else {
+          print('Failed to fetch user info - not saving credentials');
+          throw Exception('Failed to validate user information');
         }
       } else {
         print('OAuth failed: No access token received');
+        throw Exception('No access token received from OAuth provider');
       }
     } catch (e) {
       print('OAuth login error: $e');
+      // Clear any partially saved credentials on error
+      await _secureStorage.deleteAll();
       throw Exception('Login failed: $e');
     }
-    return null;
   }
 
   static Future<HuggingFaceUser?> _fetchUserInfo(String accessToken) async {

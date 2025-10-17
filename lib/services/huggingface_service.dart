@@ -97,19 +97,15 @@ class HuggingFaceService {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         final gradioSpaces = data.map((json) => HuggingFaceSpace.fromJson(json)).toList();
-        
-        if (gradioSpaces.isEmpty) {
-          throw Exception('No Gradio spaces found for user "$username".');
-        }
-        
+
+        // It's valid for a user to have no Gradio spaces, return empty list
         return gradioSpaces;
+      } else if (response.statusCode == 404) {
+        throw Exception('User "$username" not found');
       } else {
-        throw Exception('User "$username" not found or has no accessible spaces');
+        throw Exception('Failed to fetch spaces for user "$username": ${response.statusCode}');
       }
     } catch (e) {
-      if (e.toString().contains('No Gradio spaces found')) {
-        rethrow;
-      }
       throw Exception('Error fetching spaces: $e');
     }
   }
@@ -317,7 +313,8 @@ class HuggingFaceService {
         print('Public likes API requires authentication or user has private likes');
         return [];
       } else if (response.statusCode == 404) {
-        throw Exception('User "$username" not found.');
+        print('User "$username" has no public liked spaces or likes are private');
+        return [];
       } else {
         print('Unexpected response: ${response.statusCode} - ${response.body}');
         return [];

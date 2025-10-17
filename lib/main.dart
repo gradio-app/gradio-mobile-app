@@ -14,6 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Gradio Mobile',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.sourceSans3TextTheme(),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.transparent,
-          indicatorColor: Colors.black.withOpacity(0.06),
+          indicatorColor: Colors.black.withValues(alpha: 0.06),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         ),
       ),

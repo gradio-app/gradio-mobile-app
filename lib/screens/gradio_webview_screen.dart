@@ -123,11 +123,14 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
               action: SnackBarAction(
                 label: 'View',
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => FileViewerScreen(savedFile: savedFile),
-                    ),
-                  );
+                  // Check if widget is still mounted before navigating
+                  if (mounted) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FileViewerScreen(savedFile: savedFile),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
