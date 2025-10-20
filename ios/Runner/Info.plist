@@ -39,6 +39,14 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to enable Gradio spaces to capture photos and videos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to your microphone to enable Gradio spaces to record audio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to enable Gradio spaces to select images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs access to save images to your photo library from Gradio spaces.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
