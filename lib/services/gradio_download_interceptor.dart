@@ -6,6 +6,34 @@ class GradioDownloadInterceptor {
       (function() {
         console.log('🚀 Gradio Download Interceptor initialized for space: ${space.id}');
 
+        // Flag to prevent re-interception of internal fetch calls
+        let _processingBlob = false;
+
+        // Track recently processed URLs to prevent duplicates
+        const _processedUrls = new Map();
+
+        function isRecentlyProcessed(url) {
+          const now = Date.now();
+          if (_processedUrls.has(url)) {
+            const timestamp = _processedUrls.get(url);
+            if (now - timestamp < 5000) { // 5 seconds
+              return true;
+            }
+          }
+          _processedUrls.set(url, now);
+
+          // Clean up old entries
+          if (_processedUrls.size > 100) {
+            const entries = Array.from(_processedUrls.entries());
+            entries.sort((a, b) => a[1] - b[1]);
+            for (let i = 0; i < 50; i++) {
+              _processedUrls.delete(entries[i][0]);
+            }
+          }
+
+          return false;
+        }
+
         function extractFilename(url, contentDisposition) {
           if (contentDisposition) {
             const filenameMatch = contentDisposition.match(/filename[^;=\\n]*=((['"]).*?\\2|[^;\\n]*)/);
@@ -49,6 +77,8 @@ class GradioDownloadInterceptor {
 
         async function convertBlobToBase64(blobUrl) {
           try {
+            // Set flag to prevent re-interception
+            _processingBlob = true;
             const response = await fetch(blobUrl);
             const blob = await response.blob();
             return new Promise((resolve) => {
@@ -59,11 +89,20 @@ class GradioDownloadInterceptor {
           } catch (e) {
             console.log('Error converting blob to base64:', e);
             return null;
+          } finally {
+            // Always reset flag
+            _processingBlob = false;
           }
         }
 
         async function handleDownload(url, filename, element) {
           console.log('🎯 Processing download:', url);
+
+          // Prevent duplicate processing
+          if (isRecentlyProcessed(url)) {
+            console.log('⏭️ Skipping recently processed URL:', url);
+            return;
+          }
 
           let downloadData = {
             type: 'download_intercepted',
@@ -90,9 +129,10 @@ class GradioDownloadInterceptor {
             }
           }
 
-          if (window.saveDownloadedFile) {
+          // Send to Flutter using flutter_inappwebview handler
+          if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
             console.log('📤 Sending download data to Flutter');
-            window.saveDownloadedFile.postMessage(JSON.stringify(downloadData));
+            window.flutter_inappwebview.callHandler('saveDownloadedFile', downloadData);
           } else {
             console.log('❌ Flutter download handler not available');
           }
@@ -209,14 +249,34 @@ class GradioDownloadInterceptor {
 
         const originalFetch = window.fetch;
         window.fetch = async function(...args) {
+          // Skip interception if we're processing a blob internally
+          if (_processingBlob) {
+            return originalFetch.apply(this, args);
+          }
+
+          // Get the URL being fetched
+          const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+
+          // Skip Gradio's internal file serving (NOT user downloads)
+          if (url && (
+            url.includes('/gradio_api/file=') ||  // Gradio file serving
+            url.includes('/file/') ||              // Generic file viewing
+            url.includes('/view/') ||              // View endpoints
+            url.startsWith('blob:')                // Blob URLs (handled by click listeners)
+          )) {
+            console.log('⏭️ Skipping Gradio internal file:', url);
+            return originalFetch.apply(this, args);
+          }
+
           const response = await originalFetch.apply(this, args);
 
-          if (response.headers.get('content-disposition') ||
+          // Only intercept if it's actually a download (has "attachment" disposition)
+          const contentDisposition = response.headers.get('content-disposition');
+          if ((contentDisposition && contentDisposition.includes('attachment')) ||
               response.headers.get('content-type')?.startsWith('application/octet-stream')) {
 
             console.log('🎯 Fetch download detected:', args[0]);
 
-            const contentDisposition = response.headers.get('content-disposition');
             const filename = extractFilename(args[0], contentDisposition);
 
             const clonedResponse = response.clone();

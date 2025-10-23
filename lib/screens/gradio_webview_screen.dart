@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import '../models/huggingface_space.dart';
@@ -18,74 +18,36 @@ class GradioWebViewScreen extends StatefulWidget {
 }
 
 class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
-  late final WebViewController controller;
+  InAppWebViewController? controller;
   bool isLoading = true;
   bool hasError = false;
   String? errorMessage;
   int pendingDownloadsCount = 0;
 
+  final InAppWebViewSettings settings = InAppWebViewSettings(
+    javaScriptEnabled: true,
+    mediaPlaybackRequiresUserGesture: false,
+    allowsInlineMediaPlayback: true,
+  );
+
   @override
   void initState() {
     super.initState();
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int progress) {
-          },
-          onPageStarted: (String url) {
-            if (mounted) {
-              setState(() {
-                isLoading = true;
-                hasError = false;
-                errorMessage = null;
-              });
-            }
-          },
-          onPageFinished: (String url) {
-            if (mounted) {
-              setState(() {
-                isLoading = false;
-              });
-
-              _injectDownloadInterceptorScript();
-
-              _checkForErrors();
-            }
-          },
-          onWebResourceError: (WebResourceError error) {
-            if (mounted) {
-              setState(() {
-                isLoading = false;
-                hasError = true;
-                errorMessage = error.description;
-              });
-            }
-          },
-        ),
-      )
-      ..addJavaScriptChannel(
-        'saveDownloadedFile',
-        onMessageReceived: (JavaScriptMessage message) {
-          _handleDownloadCapture(message.message);
-        },
-      )
-      ..loadRequest(Uri.parse(widget.space.url));
   }
 
   Future<void> _injectDownloadInterceptorScript() async {
     try {
       final script = GradioDownloadInterceptor.generateInterceptorScript(widget.space);
-      await controller.runJavaScript(script);
+      await controller?.evaluateJavascript(source: script);
       print('✅ Download interceptor script injected for space: ${widget.space.id}');
     } catch (e) {
       print('❌ Error injecting download interceptor script: $e');
     }
   }
 
-  void _handleDownloadCapture(String messageData) async {
+  void _handleDownloadCapture(dynamic messageData) async {
     try {
-      final data = json.decode(messageData);
+      final data = messageData is String ? json.decode(messageData) : messageData;
       print('📥 Download intercepted: ${data['file_name']}');
       print('🔗 File URL: ${data['file_url']}');
       print('📁 File type: ${data['file_type']}');
@@ -123,7 +85,6 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
               action: SnackBarAction(
                 label: 'View',
                 onPressed: () {
-                  // Check if widget is still mounted before navigating
                   if (mounted) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -168,7 +129,7 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
 
   Future<void> _checkForErrors() async {
     try {
-      final result = await controller.runJavaScriptReturningResult('''
+      final result = await controller?.evaluateJavascript(source: '''
         (function() {
           var body = document.body.innerText.toLowerCase();
           if (body.includes('your space is in error') ||
@@ -186,7 +147,7 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
         })();
       ''');
 
-      if (mounted && result.toString().replaceAll('"', '') != 'ok') {
+      if (mounted && result != null && result.toString().replaceAll('"', '') != 'ok') {
         setState(() {
           hasError = true;
           switch (result.toString().replaceAll('"', '')) {
@@ -220,17 +181,19 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              controller.reload();
+              controller?.reload();
             },
           ),
           IconButton(
             icon: pendingDownloadsCount > 0
                 ? Badge(
                     label: Text(pendingDownloadsCount.toString()),
-                    child: const Icon(Icons.download_done),
+                    child: const Icon(Icons.outbox_outlined),
                   )
-                : const Icon(Icons.download, color: Colors.grey),
-            onPressed: () => Navigator.of(context).pop(), // Go to outputs tab
+                : const Icon(Icons.outbox_outlined),
+            onPressed: () {
+              Navigator.pushNamed(context, '/outputs');
+            },
             tooltip: pendingDownloadsCount > 0
                 ? '$pendingDownloadsCount file${pendingDownloadsCount == 1 ? '' : 's'} saved'
                 : 'Download files to save them',
@@ -240,7 +203,69 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: controller),
+          InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri(widget.space.url)),
+            initialSettings: settings,
+            onWebViewCreated: (InAppWebViewController webViewController) {
+              controller = webViewController;
+
+              controller!.addJavaScriptHandler(
+                handlerName: 'saveDownloadedFile',
+                callback: (args) {
+                  if (args.isNotEmpty) {
+                    _handleDownloadCapture(args[0]);
+                  }
+                },
+              );
+            },
+            onLoadStart: (controller, url) {
+              print('🔵 Page load started: $url');
+              if (mounted) {
+                setState(() {
+                  isLoading = true;
+                  hasError = false;
+                  errorMessage = null;
+                });
+              }
+            },
+            onLoadStop: (controller, url) async {
+              print('🔵 Page load stopped: $url');
+              if (mounted) {
+                setState(() {
+                  isLoading = false;
+                });
+
+                await _injectDownloadInterceptorScript();
+                await _checkForErrors();
+              }
+            },
+            onProgressChanged: (controller, progress) {
+              print('📊 Loading progress: $progress%');
+            },
+            onConsoleMessage: (controller, consoleMessage) {
+              print('🖥️ Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}');
+            },
+            onReceivedError: (controller, request, error) {
+              print('❌ Received error: ${error.description}');
+              if (mounted) {
+                setState(() {
+                  isLoading = false;
+                  hasError = true;
+                  errorMessage = error.description;
+                });
+              }
+            },
+            onReceivedHttpError: (controller, request, errorResponse) {
+              print('❌ HTTP error: ${errorResponse.statusCode} for ${request.url}');
+            },
+            onPermissionRequest: (controller, request) async {
+              print('🔐 Permission request: ${request.resources}');
+              return PermissionResponse(
+                resources: request.resources,
+                action: PermissionResponseAction.GRANT,
+              );
+            },
+          ),
           if (isLoading)
             const Center(
               child: CircularProgressIndicator(),
@@ -261,19 +286,19 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        errorMessage ?? 'Unable to load space',
+                        errorMessage ?? 'Failed to load space',
                         style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                           color: Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'The Gradio space "${widget.space.name}" is currently unavailable.',
+                        'Please try again or check if the space is available at ${widget.space.url}',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           color: Colors.grey[600],
                         ),
                         textAlign: TextAlign.center,
@@ -288,7 +313,7 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                                 hasError = false;
                                 isLoading = true;
                               });
-                              controller.reload();
+                              controller?.reload();
                             },
                             icon: const Icon(Icons.refresh),
                             label: const Text('Retry'),
@@ -298,13 +323,13 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                           ),
                           OutlinedButton.icon(
                             onPressed: () async {
-                              final url = Uri.parse('https://huggingface.co/spaces/${widget.space.id}');
+                              final url = Uri.parse(widget.space.url);
                               if (await canLaunchUrl(url)) {
                                 await launchUrl(url, mode: LaunchMode.externalApplication);
                               }
                             },
                             icon: const Icon(Icons.open_in_browser),
-                            label: const Text('Open on HF'),
+                            label: const Text('Open in Browser'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             ),

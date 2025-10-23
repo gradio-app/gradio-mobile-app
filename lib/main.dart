@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'screens/browse_screen.dart';
 import 'screens/bookmarks_screen.dart';
 import 'screens/outputs_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Request camera and microphone permissions for WebView access
+  // This allows WKWebView to use getUserMedia API for WebRTC
+  await Permission.camera.request();
+  await Permission.microphone.request();
+
   runApp(const MyApp());
 }
 
