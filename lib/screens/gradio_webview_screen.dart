@@ -265,6 +265,24 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                 action: PermissionResponseAction.GRANT,
               );
             },
+            onReceivedServerTrustAuthRequest: (controller, challenge) async {
+              print('🔒 SSL/TLS challenge for: ${challenge.protectionSpace.host}');
+
+              final host = challenge.protectionSpace.host;
+              if (host.endsWith('.hf.space') ||
+                  host.endsWith('huggingface.co') ||
+                  host.endsWith('.huggingface.co')) {
+                print('✅ Proceeding with SSL for trusted HF domain: $host');
+                return ServerTrustAuthResponse(
+                  action: ServerTrustAuthResponseAction.PROCEED
+                );
+              }
+
+              print('❌ Canceling SSL for untrusted domain: $host');
+              return ServerTrustAuthResponse(
+                action: ServerTrustAuthResponseAction.CANCEL
+              );
+            },
           ),
           if (isLoading)
             const Center(
