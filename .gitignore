@@ -50,3 +50,9 @@ app.*.map.json
 # iOS build artifacts
 Runner.app/
 *.app/
+
+# Android signing
+android/key.properties
+android/app/upload-keystore.jks
+*.jks
+*.keystore

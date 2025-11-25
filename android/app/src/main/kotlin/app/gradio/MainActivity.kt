@@ -1,4 +1,4 @@
-package com.example.gradio_mobile_app
+package app.gradio
 
 import io.flutter.embedding.android.FlutterActivity
 
