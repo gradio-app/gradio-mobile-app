@@ -255,8 +255,20 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
                 });
               }
             },
-            onReceivedHttpError: (controller, request, errorResponse) {
+            onReceivedHttpError: (controller, request, errorResponse) async {
               print('❌ HTTP error: ${errorResponse.statusCode} for ${request.url}');
+
+              // If we get a 404 on the .hf.space URL, try the fallback spaces URL
+              if (errorResponse.statusCode == 404 &&
+                  request.url.toString().contains('.hf.space')) {
+                final fallbackUrl = 'https://huggingface.co/spaces/${widget.space.id}';
+                print('⚠️ 404 on .hf.space URL, trying fallback: $fallbackUrl');
+
+                await controller.loadUrl(
+                  urlRequest: URLRequest(url: WebUri(fallbackUrl)),
+                );
+                return;
+              }
             },
             onPermissionRequest: (controller, request) async {
               print('🔐 Permission request: ${request.resources}');
@@ -266,19 +278,16 @@ class _GradioWebViewScreenState extends State<GradioWebViewScreen> {
               );
             },
             onReceivedServerTrustAuthRequest: (controller, challenge) async {
-              print('🔒 SSL/TLS challenge for: ${challenge.protectionSpace.host}');
 
               final host = challenge.protectionSpace.host;
               if (host.endsWith('.hf.space') ||
                   host.endsWith('huggingface.co') ||
                   host.endsWith('.huggingface.co')) {
-                print('✅ Proceeding with SSL for trusted HF domain: $host');
                 return ServerTrustAuthResponse(
                   action: ServerTrustAuthResponseAction.PROCEED
                 );
               }
 
-              print('❌ Canceling SSL for untrusted domain: $host');
               return ServerTrustAuthResponse(
                 action: ServerTrustAuthResponseAction.CANCEL
               );

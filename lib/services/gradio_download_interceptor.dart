@@ -9,25 +9,34 @@ class GradioDownloadInterceptor {
         // Flag to prevent re-interception of internal fetch calls
         let _processingBlob = false;
 
-        // Track recently processed URLs to prevent duplicates
-        const _processedUrls = new Map();
+        const _processedFiles = new Map();
 
-        function isRecentlyProcessed(url) {
+        function createFileHash(filename, url) {
+          if (url.startsWith('data:')) {
+            return filename + '_' + url.substring(0, 100);
+          }
+          return filename + '_' + url;
+        }
+
+        function isRecentlyProcessed(filename, url) {
+          const hash = createFileHash(filename, url);
           const now = Date.now();
-          if (_processedUrls.has(url)) {
-            const timestamp = _processedUrls.get(url);
-            if (now - timestamp < 5000) { // 5 seconds
+
+          if (_processedFiles.has(hash)) {
+            const timestamp = _processedFiles.get(hash);
+            if (now - timestamp < 10000) { // 10 seconds
+              console.log('⏭️ Duplicate detected, skipping:', filename);
               return true;
             }
           }
-          _processedUrls.set(url, now);
 
-          // Clean up old entries
-          if (_processedUrls.size > 100) {
-            const entries = Array.from(_processedUrls.entries());
+          _processedFiles.set(hash, now);
+
+          if (_processedFiles.size > 100) {
+            const entries = Array.from(_processedFiles.entries());
             entries.sort((a, b) => a[1] - b[1]);
             for (let i = 0; i < 50; i++) {
-              _processedUrls.delete(entries[i][0]);
+              _processedFiles.delete(entries[i][0]);
             }
           }
 
@@ -96,11 +105,9 @@ class GradioDownloadInterceptor {
         }
 
         async function handleDownload(url, filename, element) {
-          console.log('🎯 Processing download:', url);
+          console.log('🎯 Processing download:', filename, url.substring(0, 50) + '...');
 
-          // Prevent duplicate processing
-          if (isRecentlyProcessed(url)) {
-            console.log('⏭️ Skipping recently processed URL:', url);
+          if (isRecentlyProcessed(filename, url)) {
             return;
           }
 
@@ -129,7 +136,6 @@ class GradioDownloadInterceptor {
             }
           }
 
-          // Send to Flutter using flutter_inappwebview handler
           if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
             console.log('📤 Sending download data to Flutter');
             window.flutter_inappwebview.callHandler('saveDownloadedFile', downloadData);

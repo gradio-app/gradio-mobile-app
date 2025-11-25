@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'hf_cookie_manager.dart';
 
 class HuggingFaceUser {
   final String username;
@@ -86,6 +87,8 @@ class HFOAuthService {
 
   static Future<HuggingFaceUser?> login() async {
     try {
+      print('Starting OAuth login with redirect URI: $_redirectUri');
+
       final AuthorizationTokenRequest request = AuthorizationTokenRequest(
         _clientId,
         _redirectUri,
@@ -94,9 +97,12 @@ class HFOAuthService {
           tokenEndpoint: _tokenEndpoint,
         ),
         scopes: _scopes,
+        allowInsecureConnections: false,
       );
 
+      print('Calling authorizeAndExchangeCode...');
       final AuthorizationTokenResponse? result = await _appAuth.authorizeAndExchangeCode(request);
+      print('Authorization completed, result: ${result != null ? "success" : "null"}');
 
       if (result != null && result.accessToken != null) {
         print('OAuth success! Token type: ${result.tokenType}');
@@ -104,15 +110,16 @@ class HFOAuthService {
         print('Token expires in: ${result.accessTokenExpirationDateTime}');
         print('Scopes: ${result.scopes}');
 
-        // Validate user info BEFORE saving credentials
         final user = await _fetchUserInfo(result.accessToken!);
         if (user != null) {
-          // Only save credentials after successful validation
           await _secureStorage.write(key: _accessTokenKey, value: result.accessToken!);
           if (result.refreshToken != null) {
             await _secureStorage.write(key: _refreshTokenKey, value: result.refreshToken!);
           }
           await _cacheUserData(user);
+
+          await HFCookieManager.setHFAuthCookie(result.accessToken!);
+
           return user;
         } else {
           print('Failed to fetch user info - not saving credentials');
@@ -124,9 +131,91 @@ class HFOAuthService {
       }
     } catch (e) {
       print('OAuth login error: $e');
-      // Clear any partially saved credentials on error
       await _secureStorage.deleteAll();
       throw Exception('Login failed: $e');
+    }
+  }
+
+  /// Exchange authorization code for access token (used by webview OAuth flow)
+  static Future<HuggingFaceUser?> exchangeCodeForToken(String code, String redirectUri) async {
+    try {
+      print('Exchanging authorization code for token...');
+
+      final response = await http.post(
+        Uri.parse(_tokenEndpoint),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'grant_type': 'authorization_code',
+          'client_id': _clientId,
+          'code': code,
+          'redirect_uri': redirectUri,
+        },
+      );
+
+      print('Token exchange response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final tokenData = json.decode(response.body);
+        final accessToken = tokenData['access_token'];
+        final refreshToken = tokenData['refresh_token'];
+
+        if (accessToken != null) {
+          print('Token exchange successful');
+
+          // Fetch user info
+          final user = await _fetchUserInfo(accessToken);
+
+          if (user != null) {
+            // Save credentials
+            await _secureStorage.write(key: _accessTokenKey, value: accessToken);
+            if (refreshToken != null) {
+              await _secureStorage.write(key: _refreshTokenKey, value: refreshToken);
+            }
+            await _cacheUserData(user);
+
+            // Set cookie for webviews
+            await HFCookieManager.setHFAuthCookie(accessToken);
+
+            return user;
+          }
+        }
+      } else {
+        print('Token exchange failed: ${response.body}');
+      }
+
+      return null;
+    } catch (e) {
+      print('Error exchanging code for token: $e');
+      return null;
+    }
+  }
+
+  /// Login using an existing token (from webview cookies)
+  static Future<HuggingFaceUser?> loginWithToken(String token) async {
+    try {
+      print('Logging in with token from cookies...');
+
+      // Fetch user info using the token
+      final user = await _fetchUserInfo(token);
+
+      if (user != null) {
+        // Save credentials
+        await _secureStorage.write(key: _accessTokenKey, value: token);
+        await _cacheUserData(user);
+
+        // Set cookie for webviews
+        await HFCookieManager.setHFAuthCookie(token);
+
+        print('Login with token successful: ${user.username}');
+        return user;
+      }
+
+      return null;
+    } catch (e) {
+      print('Error logging in with token: $e');
+      return null;
     }
   }
 
@@ -267,6 +356,7 @@ class HFOAuthService {
 
   static Future<void> logout() async {
     await _secureStorage.deleteAll();
+    await HFCookieManager.clearHFCookies();
   }
 
   static Future<bool> validateSession() async {

@@ -47,8 +47,18 @@ class FileStorageService {
     try {
       print('💾 Saving file: $fileName from: ${fileUrl.length > 50 ? '${fileUrl.substring(0, 50)}...' : fileUrl}');
 
-      final mimeType = lookupMimeType(fileName) ?? 'application/octet-stream';
-      final fileExtension = path.extension(fileName).toLowerCase();
+      String? mimeType;
+      if (fileUrl.startsWith('data:') || (fileData != null && fileData.startsWith('data:'))) {
+        final dataUrl = fileUrl.startsWith('data:') ? fileUrl : fileData!;
+        final mimeMatch = RegExp(r'data:([^;]+);').firstMatch(dataUrl);
+        if (mimeMatch != null) {
+          mimeType = mimeMatch.group(1);
+          print('📋 Extracted MIME type from data URL: $mimeType');
+        }
+      }
+
+      mimeType ??= lookupMimeType(fileName) ?? 'application/octet-stream';
+
       final fileType = _getFileTypeFromMime(mimeType);
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -61,10 +71,13 @@ class FileStorageService {
           .replaceAll(RegExp(r'_+'), '_')
           .toLowerCase();
 
-      final extension = path.extension(fileName);
-      final baseName = path.basenameWithoutExtension(fileName);
+      String extension = path.extension(fileName);
+      if (extension.isEmpty || extension == '.bin') {
+        extension = _getExtensionFromMimeType(mimeType);
+        print('🔄 Corrected extension from MIME type: $extension');
+      }
 
-      final uniqueFileName = '${cleanSpaceName}_${hash}$extension';
+      final uniqueFileName = '${cleanSpaceName}_$hash$extension';
 
       final spaceFolder = _getSpaceFolder(space.id);
       await spaceFolder.create(recursive: true);
@@ -82,9 +95,11 @@ class FileStorageService {
           if (dataUrlParts.length != 2) {
             throw Exception('Invalid data URL format');
           }
-          fileBytes = base64Decode(dataUrlParts[1]);
+          final urlDecodedBase64 = Uri.decodeComponent(dataUrlParts[1]);
+          fileBytes = base64Decode(urlDecodedBase64);
         } else {
-          fileBytes = base64Decode(fileData);
+          final urlDecodedBase64 = Uri.decodeComponent(fileData);
+          fileBytes = base64Decode(urlDecodedBase64);
         }
         fileSizeBytes = fileBytes.length;
       } else if (fileUrl.startsWith('data:')) {
@@ -94,7 +109,8 @@ class FileStorageService {
           throw Exception('Invalid data URL format');
         }
 
-        fileBytes = base64Decode(dataUrlParts[1]);
+        final urlDecodedBase64 = Uri.decodeComponent(dataUrlParts[1]);
+        fileBytes = base64Decode(urlDecodedBase64);
         fileSizeBytes = fileBytes.length;
       } else {
         print('🌐 Downloading file from URL...');
@@ -164,9 +180,8 @@ class FileStorageService {
           .toLowerCase();
 
       final extension = path.extension(fileName);
-      final baseName = path.basenameWithoutExtension(fileName);
 
-      final uniqueFileName = '${cleanSpaceName}_${hash}$extension';
+      final uniqueFileName = '${cleanSpaceName}_$hash$extension';
 
       final spaceFolder = _getSpaceFolder(space.id);
       await spaceFolder.create(recursive: true);
@@ -293,6 +308,58 @@ class FileStorageService {
       return 'data';
     }
     return 'file';
+  }
+
+  static String _getExtensionFromMimeType(String mimeType) {
+    // Map common MIME types to file extensions
+    final mimeToExtension = {
+      // Images
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'image/bmp': '.bmp',
+      'image/tiff': '.tiff',
+      'image/x-icon': '.ico',
+      // Audio
+      'audio/mpeg': '.mp3',
+      'audio/mp3': '.mp3',
+      'audio/wav': '.wav',
+      'audio/ogg': '.ogg',
+      'audio/webm': '.webm',
+      'audio/aac': '.aac',
+      'audio/flac': '.flac',
+      // Video
+      'video/mp4': '.mp4',
+      'video/mpeg': '.mpeg',
+      'video/webm': '.webm',
+      'video/ogg': '.ogv',
+      'video/quicktime': '.mov',
+      'video/x-msvideo': '.avi',
+      // Documents
+      'application/pdf': '.pdf',
+      'text/plain': '.txt',
+      'text/html': '.html',
+      'text/css': '.css',
+      'text/javascript': '.js',
+      'application/json': '.json',
+      'application/xml': '.xml',
+      'text/csv': '.csv',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+      'application/vnd.ms-excel': '.xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+      // Archives
+      'application/zip': '.zip',
+      'application/x-rar-compressed': '.rar',
+      'application/x-7z-compressed': '.7z',
+      'application/x-tar': '.tar',
+      'application/gzip': '.gz',
+    };
+
+    return mimeToExtension[mimeType] ?? '.bin';
   }
 
   static String _formatFileSize(int bytes) {

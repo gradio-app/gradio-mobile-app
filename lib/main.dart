@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'screens/browse_screen.dart';
 import 'screens/bookmarks_screen.dart';
 import 'screens/outputs_screen.dart';
+import 'screens/hf_chat_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
@@ -53,6 +54,7 @@ class _MainScreenState extends State<MainScreen> {
     const BrowseScreen(),
     const BookmarksScreen(),
     const OutputsScreen(),
+    const HFChatScreen(),
   ];
 
   @override
@@ -92,6 +94,11 @@ class _MainScreenState extends State<MainScreen> {
                     icon: Icon(Icons.outbox_outlined),
                     selectedIcon: Icon(Icons.outbox),
                     label: 'Outputs',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.chat_bubble_outline),
+                    selectedIcon: Icon(Icons.chat_bubble),
+                    label: 'Chat',
                   ),
                 ],
               ),

@@ -43,7 +43,16 @@ class HuggingFaceSpace {
     final author = parts.isNotEmpty ? parts[0] : '';
     final name = parts.length > 1 ? parts[1] : id;
 
-    final subdomain = id.replaceAll('/', '-').toLowerCase();
+    // Construct the .hf.space subdomain URL
+    // HuggingFace converts spaces/special chars to hyphens and lowercases everything
+    // Format: username-spacename.hf.space
+    final subdomain = id
+        .replaceAll('/', '-')      // Replace / with -
+        .replaceAll('_', '-')      // Replace _ with -
+        .replaceAll('.', '-')      // Replace . with -
+        .replaceAll(' ', '-')      // Replace spaces with -
+        .toLowerCase();
+
     final url = 'https://$subdomain.hf.space';
     final thumbnailUrl = 'https://huggingface.co/spaces/$id/thumbnail.png';
 

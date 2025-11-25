@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/huggingface_space.dart';
 import '../services/huggingface_service.dart';
 import '../services/hf_oauth_service.dart';
+import '../services/hf_cookie_manager.dart';
 import 'gradio_webview_screen.dart';
+import 'hf_login_webview_screen.dart';
 import '../widgets/space_card.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -84,6 +86,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
             currentUser = user;
             isLoggedIn = true;
           });
+
+          // Sync cookie for webviews if user is already logged in
+          final accessToken = await HFOAuthService.getAccessToken();
+          if (accessToken != null) {
+            await HFCookieManager.setHFAuthCookie(accessToken);
+          }
+
           await _fetchUserSpaces(user.username, showLoadingIndicator: false);
         }
       }
@@ -365,67 +374,21 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
   }
 
   Future<void> _signInWithOAuth() async {
-    if (mounted) {
+    // Use webview-based OAuth flow for better session sharing
+    final user = await Navigator.of(context).push<HuggingFaceUser>(
+      MaterialPageRoute(
+        builder: (context) => const HFLoginWebviewScreen(),
+      ),
+    );
+
+    if (user != null && mounted) {
       setState(() {
-        isLoading = true;
+        currentUser = user;
+        isLoggedIn = true;
         error = null;
       });
-    }
 
-    try {
-      final user = await HFOAuthService.login();
-      if (user != null && mounted) {
-        setState(() {
-          currentUser = user;
-          isLoggedIn = true;
-        });
-
-        await _fetchUserSpaces(user.username);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Welcome back, ${user.username}!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      String errorMessage = 'Unable to sign in. Please try again.';
-
-      final errorStr = e.toString().toLowerCase();
-      if (errorStr.contains('cancel')) {
-        errorMessage = 'Sign in was cancelled.';
-      } else if (errorStr.contains('network') || errorStr.contains('connection')) {
-        errorMessage = 'Network error. Check your connection.';
-      } else if (errorStr.contains('timeout')) {
-        errorMessage = 'Request timed out. Please try again.';
-      }
-
-      if (mounted) {
-        setState(() {
-          error = errorMessage;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: _signInWithOAuth,
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      await _fetchUserSpaces(user.username);
     }
   }
 
