@@ -13,6 +13,7 @@ A Flutter mobile application for browsing and managing Gradio spaces from Huggin
 - ❤️ **Liked Spaces** - View your public liked Gradio spaces
 - 👨‍💻 **Created Spaces** - See your own Gradio spaces
 - 🔄 **Pull-to-Refresh** - Keep your spaces up to date
+- 💬 **HuggingChat** - Use HuggingChat and chat with open source models
 
 ## Prerequisites
 Follow [these](https://docs.flutter.dev/get-started/install/macos/mobile-ios) instructions for setting up Flutter on iOS.
