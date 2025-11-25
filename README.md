@@ -1,4 +1,6 @@
-# Gradio Mobile App (⚠️ Still in development)
+# Gradio Mobile App
+[Available on iOS](https://apps.apple.com/us/app/gradio-spaces/id6753218161)
+Available on Android Soon!
 
 A Flutter mobile application for browsing and managing Gradio spaces from HuggingFace. Features OAuth authentication, automatic username detection, and categorized space browsing.
 
