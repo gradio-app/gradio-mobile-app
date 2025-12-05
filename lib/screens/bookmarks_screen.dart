@@ -388,7 +388,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> with TickerProviderSt
         error = null;
       });
 
+      // Fetch user spaces and show the content
       await _fetchUserSpaces(user.username);
+    } else if (mounted) {
+      // User cancelled the sign-in
+      print('User cancelled sign-in or authentication failed');
     }
   }
 

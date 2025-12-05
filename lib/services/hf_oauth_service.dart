@@ -219,6 +219,81 @@ class HFOAuthService {
     }
   }
 
+  /// Login using session token and user info from page scraping
+  static Future<void> loginWithSessionToken(String sessionToken, HuggingFaceUser user) async {
+    try {
+      print('Saving session token for user: ${user.username}');
+
+      // Save the session token (not a real OAuth token, but works for cookie-based auth)
+      await _secureStorage.write(key: _accessTokenKey, value: sessionToken);
+      await _cacheUserData(user);
+
+      // Set cookie for webviews to maintain session
+      await HFCookieManager.setHFAuthCookie(sessionToken);
+
+      print('Session token saved successfully');
+    } catch (e) {
+      print('Error saving session token: $e');
+      rethrow;
+    }
+  }
+
+  /// Login using session cookie by making a request with cookies
+  static Future<HuggingFaceUser?> loginWithSessionCookie(String sessionToken) async {
+    try {
+      print('Attempting to fetch user info with session cookie...');
+
+      // Make a request to the whoami endpoint with the Cookie header
+      final response = await http.get(
+        Uri.parse('https://huggingface.co/api/whoami-v2'),
+        headers: {
+          'Cookie': 'token=$sessionToken',
+          'Accept': 'application/json',
+        },
+      );
+
+      print('Whoami-v2 with cookie response status: ${response.statusCode}');
+      print('Whoami-v2 with cookie response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final userData = json.decode(response.body);
+        final user = HuggingFaceUser.fromJson(userData);
+
+        // Save the session token and user data
+        await loginWithSessionToken(sessionToken, user);
+
+        return user;
+      }
+
+      // Try the regular whoami endpoint
+      final response2 = await http.get(
+        Uri.parse('https://huggingface.co/api/whoami'),
+        headers: {
+          'Cookie': 'token=$sessionToken',
+          'Accept': 'application/json',
+        },
+      );
+
+      print('Whoami with cookie response status: ${response2.statusCode}');
+      print('Whoami with cookie response body: ${response2.body}');
+
+      if (response2.statusCode == 200) {
+        final userData = json.decode(response2.body);
+        final user = HuggingFaceUser.fromJson(userData);
+
+        // Save the session token and user data
+        await loginWithSessionToken(sessionToken, user);
+
+        return user;
+      }
+
+      return null;
+    } catch (e) {
+      print('Error fetching user info with session cookie: $e');
+      return null;
+    }
+  }
+
   static Future<HuggingFaceUser?> _fetchUserInfo(String accessToken) async {
     try {
       print('Access token received: ${accessToken.substring(0, 20)}...');
